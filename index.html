@@ -189,15 +189,17 @@ const CONFIG = {
 /* =========================
    Firebase 설정 (본인 값으로 교체)
    ========================= */
+// Firebase 설정 (본인 값으로 교체)
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyB3-abc123xyzEXAMPLE456",
+  authDomain: "grit-championship-v02.firebaseapp.com",
+  databaseURL: "https://grit-championship-v02-default-rtdb.firebaseio.com",
+  projectId: "grit-championship-v02",
+  storageBucket: "grit-championship-v02.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456"
 };
+
 let RTDB_ENABLED = !( !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY" );
 let app, db;
 const statusBar = document.getElementById("status");
@@ -481,3 +483,4 @@ function showInterstitial(){ inter.style.display="flex"; }
 </script>
 </body>
 </html>
+
