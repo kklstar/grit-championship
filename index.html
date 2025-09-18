@@ -133,7 +133,7 @@ try{
 }
 
 /* ==========================================================
-   2) 점수 업로드 + 리더보드
+   2) 점수 업로드 + 리더보드 (0점 필터)
    ========================================================== */
 async function submitScore(nickname, score, country="KR", durationMs=0){
   if(!RTDB_ENABLED) return console.warn("RTDB disabled");
@@ -170,7 +170,8 @@ function renderLeaderboard(rows){
 }
 function startLeaderboard(){
   if(!RTDB_ENABLED) return;
-  db.ref("scores_v1").orderByChild("score").limitToLast(50).on("value", snap=>{
+  // 0점은 숨기기: score >= 1만 구독
+  db.ref("scores_v1").orderByChild("score").startAt(1).limitToLast(50).on("value", snap=>{
     const arr=[]; snap.forEach(c=>arr.push(c.val()));
     arr.sort((a,b)=>(b.score||0)-(a.score||0));
     renderLeaderboard(arr);
@@ -179,7 +180,7 @@ function startLeaderboard(){
 startLeaderboard();
 
 /* ==========================================================
-   3) 테트리스 — 다듬은 룰/가속/점수
+   3) 테트리스 — 시작 전엔 조각 생성하지 않음
    ========================================================== */
 const cvs=$("#game"), ctx=cvs.getContext("2d");
 const COL=10, ROW=20, CELL=24;
@@ -189,59 +190,71 @@ const SHAPES={I:[[1,1,1,1]],O:[[2,2],[2,2]],T:[[0,3,0],[3,3,3]],S:[[0,4,4],[4,4,
 const rndShape=()=>{const k=Object.keys(SHAPES);const s=k[Math.floor(Math.random()*k.length)];return SHAPES[s].map(r=>r.slice());};
 
 const board = Array.from({length:ROW},()=>Array(COL).fill(0));
-let piece={m:rndShape(),x:3,y:0};
+let piece = null; // ← 시작 전엔 조각 없음
 let score=0, lines=0, level=1, running=false, startMs=0, lastDrop=0, rafId=0;
 
 const rotate=m=>{ const h=m.length,w=m[0].length,n=Array.from({length:w},()=>Array(h).fill(0));
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) n[x][h-1-y]=m[y][x]; return n; };
-function collides(nx,ny,m=piece.m){
+function collides(nx,ny,m=piece?.m){
+  if(!m) return false;
   for(let y=0;y<m.length;y++) for(let x=0;x<m[0].length;x++){
     if(!m[y][x]) continue; const px=nx+x, py=ny+y;
     if(px<0||px>=COL||py>=ROW) return true;
     if(py>=0 && board[py][px]) return true;
   } return false;
 }
-function merge(){ piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) board[piece.y+dy][piece.x+dx]=v; })); }
+function merge(){ if(!piece) return;
+  piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) board[piece.y+dy][piece.x+dx]=v; })); }
 function clearLines(){
   let c=0;
   for(let y=ROW-1;y>=0;y--){
     if(board[y].every(v=>v)){ board.splice(y,1); board.unshift(Array(COL).fill(0)); c++; y++; }
   }
   if(c){
-    const add=[0,100,300,500,800][c]; // 표준 룰에 가까운 가중치
+    const add=[0,100,300,500,800][c];
     score+=add; lines+=c; level=1+Math.floor(lines/10);
   }
 }
-function spawn(){ piece={m:rndShape(),x:3,y:0}; return !collides(piece.x,piece.y); }
-
+function spawn(){
+  piece = {m:rndShape(), x:3, y:0};
+  return !collides(piece.x,piece.y,piece.m);
+}
 function drawCell(x,y,v){ ctx.fillStyle=v?COLORS[v]:"#0a0f22"; ctx.fillRect(x*CELL,y*CELL,CELL-1,CELL-1); }
 function draw(){
   for(let y=0;y<ROW;y++) for(let x=0;x<COL;x++) drawCell(x,y,board[y][x]);
-  piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) drawCell(piece.x+dx,piece.y+dy,v); }));
+  if(piece){
+    piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) drawCell(piece.x+dx,piece.y+dy,v); }));
+  }
   $("#sc").textContent=score; $("#ln").textContent=lines; $("#lv").textContent=level;
 }
 function tick(){
   if(!running) return;
-  const speed = Math.max(70, 720 - level*55); // 레벨이 오를수록 빨라짐(최소 70ms)
+  const speed = Math.max(70, 720 - level*55);
   const now = performance.now();
   if(now - lastDrop > speed){ stepDown(); lastDrop=now; }
   draw(); rafId=requestAnimationFrame(tick);
 }
 function stepDown(){
-  if(!collides(piece.x,piece.y+1)){ piece.y++; }
+  if(!piece) return;
+  if(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; }
   else{ merge(); clearLines(); if(!spawn()){ gameOver(); return; } }
 }
-function softDrop(){ if(collides(piece.x,piece.y+1)) return; piece.y++; score+=1; }           // 소프트드롭 보너스
+function softDrop(){
+  if(!piece) return;
+  if(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; score+=1; }
+}
 function hardDrop(){
-  let moved=0; while(!collides(piece.x,piece.y+1)){ piece.y++; moved++; }
-  score += 2*moved; // 하드드롭 보너스
-  merge(); clearLines(); if(!spawn()) { gameOver(); return; } draw();
+  if(!piece) return;
+  let moved=0; while(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; moved++; }
+  score += 2*moved;
+  merge(); clearLines(); if(!spawn()){ gameOver(); return; } draw();
 }
 
 function gameStart(){
   cancelAnimationFrame(rafId);
   for(const r of board) r.fill(0);
-  score=0; lines=0; level=1; spawn();
+  score=0; lines=0; level=1;
+  piece=null; spawn();               // ← 여기서만 생성
   running=true; startMs=Date.now(); lastDrop=0;
   $("#gameOver").style.display="none";
   requestAnimationFrame(tick);
@@ -256,10 +269,10 @@ function gameOver(){
 
 /* 키보드 */
 window.addEventListener("keydown",e=>{
-  if(!running) return;
-  if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y)) piece.x--;
-  else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y)) piece.x++;
-  else if(e.code==="ArrowDown"){ if(!collides(piece.x,piece.y+1)){ softDrop(); } }
+  if(!running || !piece) return;
+  if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
+  else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y,piece.m)) piece.x++;
+  else if(e.code==="ArrowDown"){ if(!collides(piece.x,piece.y+1,piece.m)){ softDrop(); } }
   else if(e.code==="ArrowUp"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
   else if(e.code==="Space"){ e.preventDefault(); hardDrop(); }
   draw();
@@ -274,10 +287,10 @@ function startHold(action){
 }
 function endHold(){ clearTimeout(holdTimer); clearInterval(repeatTimer); }
 function doAction(act){
-  if(!running) return;
-  if(act==="left" && !collides(piece.x-1,piece.y)) piece.x--;
-  else if(act==="right" && !collides(piece.x+1,piece.y)) piece.x++;
-  else if(act==="down"){ if(!collides(piece.x,piece.y+1)){ softDrop(); } }
+  if(!running || !piece) return;
+  if(act==="left" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
+  else if(act==="right" && !collides(piece.x+1,piece.y,piece.m)) piece.x++;
+  else if(act==="down"){ if(!collides(piece.x,piece.y+1,piece.m)){ softDrop(); } }
   else if(act==="rotate"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
   else if(act==="drop"){ hardDrop(); }
   draw();
