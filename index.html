@@ -1,38 +1,46 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>천하제일 근성 대회 (World Grit Championship)</title>
-  <style>
-    :root{--bg:#0e1020;--fg:#e9eefb;--panel:#14192a;--line:#22306e}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
-    header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    header h1{font-size:18px;margin:0 6px 0 0}
-    input,select,button{background:#0e1430;color:var(--fg);border:1px solid #1e2a55;border-radius:10px;padding:8px 10px;outline:none}
-    button{cursor:pointer;font-weight:700}
-    .wrap{display:grid;gap:16px;grid-template-columns:340px 1fr;padding:16px}
-    .left{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
-    .board{display:flex;justify-content:center;margin-top:6px}
-    canvas{background:#0a0f22;border:1px solid #22306e;border-radius:12px;display:block;margin:auto}
-    .stat{display:flex;justify-content:space-between;margin:8px 0 0;font-size:13px;opacity:.9}
-    .right{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
-    th{text-align:left;opacity:.9}
-    .ok{background:#0c2a18;border:1px solid #1a6b3b}
-    .danger{background:#2a1212;border:1px solid #6b1a1a}
-    #status{display:none;padding:8px 10px;border-radius:10px;margin:8px 0;font-size:13px}
-    .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.25);border-radius:12px}
-    .overlay h2{margin:0 0 6px}
-    .panel{position:relative}
-    .help{font-size:12px;opacity:.75;line-height:1.5;margin-top:8px}
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>천하제일 근성 대회 (World Grit Championship)</title>
+<style>
+  :root{--bg:#0e1020;--fg:#e9eefb;--muted:#9aa8c7;--panel:#14192a;--line:#22306e;--accent:#49b2ff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
+  header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0 8px 0 0;white-space:nowrap}
+  input,button{background:#0e1430;color:var(--fg);border:1px solid #1e2a55;border-radius:10px;padding:8px 10px;outline:none}
+  button{cursor:pointer;font-weight:700}
+  .wrap{display:grid;gap:16px;grid-template-columns:360px 1fr;padding:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .board{position:relative;display:flex;justify-content:center}
+  canvas{background:#0a0f22;border:1px solid #22306e;border-radius:12px;display:block;width:100%;max-width:360px;height:auto;touch-action:none}
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.28);border-radius:12px;text-align:center}
+  .overlay h2{margin:0 0 6px}
+  .stat{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;opacity:.95}
+  .help{font-size:12px;opacity:.75;line-height:1.5;margin-top:8px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
+  th{text-align:left;opacity:.9}
+  .ok{background:#0c2a18;border:1px solid #1a6b3b}
+  .danger{background:#2a1212;border:1px solid #6b1a1a}
+  #status{display:none;padding:8px 10px;border-radius:10px;margin:8px 0;font-size:13px}
+  /* 모바일 컨트롤러 */
+  .controls{display:none;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .pad{display:flex;gap:10px}
+  .ctl{width:64px;height:64px;border-radius:14px;background:#0e1430;border:1px solid #1e2a55;display:flex;align-items:center;justify-content:center;font-weight:800;user-select:none}
+  .ctl:active{transform:translateY(1px);filter:brightness(1.1)}
+  .wide{width:104px}
+  @media (max-width: 980px){
+    .wrap{grid-template-columns:1fr}
+    .controls{display:flex}
+  }
+</style>
 
-  <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
   <header>
@@ -44,30 +52,45 @@
   </header>
 
   <main class="wrap">
-    <section class="left panel">
+    <!-- 좌측: 게임 -->
+    <section class="card">
       <div style="text-align:center;opacity:.6;margin:4px 0">AD — 여기에 배너/스크립트</div>
       <div class="board">
         <canvas id="game" width="240" height="480"></canvas>
         <div class="overlay" id="gameOver">
           <h2>GAME OVER</h2>
-          <div>재시작 버튼으로 다시 도전!</div>
+          <div>다시 하려면 <b>재시작</b> 버튼을 누르세요</div>
         </div>
       </div>
+
       <div class="stat">
         <div>점수 / Score <span id="sc">0</span></div>
         <div>라인 / Lines <span id="ln">0</span></div>
         <div>레벨 / Level <span id="lv">1</span></div>
       </div>
+
+      <!-- 모바일 터치 컨트롤러 -->
+      <div class="controls" id="touchCtrls">
+        <div class="pad">
+          <div class="ctl" data-act="left">←</div>
+          <div class="ctl" data-act="right">→</div>
+        </div>
+        <div class="pad">
+          <div class="ctl" data-act="rotate">⟳</div>
+          <div class="ctl" data-act="down">↓</div>
+          <div class="ctl wide" data-act="drop">HARD</div>
+        </div>
+      </div>
+
       <div class="help">
-        조작: ← → 이동 | ↑ 회전 | ↓ 소프트드롭 | Space 하드드롭<br/>
-        * 국가 표기는 데모에선 고정(KR). 운영 시 서버에서 IP→국가로 바꾸세요.
+        조작: ← → 이동 | ↑ 회전 | ↓ 소프트드롭(가속 점수) | Space 하드드롭(보너스)<br/>
+        * 데모에선 국가 표기 KR 고정. 운영 시 서버에서 IP→국가로 교체.
       </div>
     </section>
 
-    <section class="right">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <strong>리더보드 / Leaderboard (Top 50)</strong>
-      </div>
+    <!-- 우측: 리더보드 -->
+    <section class="card">
+      <strong>리더보드 / Leaderboard (Top 50)</strong>
       <div id="status2" class="ok" style="display:none;padding:8px 10px;border-radius:10px;margin:6px 0;font-size:13px"></div>
       <table>
         <thead>
@@ -80,7 +103,7 @@
 
 <script>
 /* ==========================================================
-   (1) Firebase 설정 — 본인 값으로 교체 (한 곳만 수정)
+   1) Firebase 설정 — 본인 값으로 교체 (3개)
    ========================================================== */
 const firebaseConfig = {
   apiKey: "여기에 본인 apiKey",
@@ -92,53 +115,46 @@ const firebaseConfig = {
   appId: "여기에 본인 appId"
 };
 
-/* ==========================================================
-   (2) 상태 표시 유틸
-   ========================================================== */
+/* 공용 상태 & 유틸 */
 let app, db;
 let RTDB_ENABLED = !!(firebaseConfig && firebaseConfig.apiKey);
-const $ = (s)=>document.querySelector(s);
+const $ = sel => document.querySelector(sel);
 function setStatus(msg, ok=false){
-  const el = $("#status");
-  if(!el){ console.log(msg); return; }
-  el.textContent = msg;
-  el.className = ok ? "ok" : "danger";
-  el.style.display="inline-block";
+  const el = $("#status"); if(!el) return console.log(msg);
+  el.textContent = msg; el.className = ok ? "ok" : "danger"; el.style.display="inline-block";
 }
 try{
   app = firebase.initializeApp(firebaseConfig);
   db  = firebase.database();
   if(RTDB_ENABLED) setStatus("Firebase 연결 OK / Connected — 점수 업로드 가능", true);
 }catch(e){
-  RTDB_ENABLED = false;
+  RTDB_ENABLED=false; setStatus("Firebase 연결 실패 / Init failed", false);
   console.warn("Firebase init failed:", e);
-  setStatus("Firebase 연결 실패 / Init failed", false);
 }
 
 /* ==========================================================
-   (3) 점수 업로드 + 리더보드 구독
+   2) 점수 업로드 + 리더보드
    ========================================================== */
-async function submitScore(nickname, score, country="KR", durationMs=4000){
+async function submitScore(nickname, score, country="KR", durationMs=0){
   if(!RTDB_ENABLED) return console.warn("RTDB disabled");
-  if(durationMs<3000) return console.warn("Playtime too short (<3s)");
+  if(durationMs < 3000) return console.warn("Playtime too short (<3s) — blocked");
+  if(!score || score <= 0)  return console.warn("Zero score — blocked");
   const payload = {
     nickname: String(nickname||"Guest").slice(0,20),
-    score: Math.max(0, Math.floor(score||0)),
+    score: Math.max(0, Math.floor(score)),
     country: String(country||"KR").slice(0,3).toUpperCase(),
-    date: new Date().toISOString(),
-    ua: navigator.userAgent.slice(0,80)
+    date: new Date().toISOString()
   };
   console.log("Submitting score →", payload);
   try{
     const ref = await db.ref("scores_v1").push(payload);
     console.log("Score submitted ✔", ref.key);
-    const s2 = $("#status2"); if(s2){ s2.style.display="block"; s2.textContent="점수 저장 완료 / Saved"; }
+    const s2=$("#status2"); if(s2){ s2.style.display="block"; s2.textContent="점수 저장 완료 / Saved"; s2.className="ok"; }
   }catch(err){
     console.error("Submit failed", err);
-    const s2 = $("#status2"); if(s2){ s2.style.display="block"; s2.textContent="점수 저장 실패 / Failed"; s2.className="danger"; }
+    const s2=$("#status2"); if(s2){ s2.style.display="block"; s2.textContent="점수 저장 실패 / Failed"; s2.className="danger"; }
   }
 }
-
 function renderLeaderboard(rows){
   const tb = $("#leader-tbody"); if(!tb) return;
   tb.innerHTML = "";
@@ -151,145 +167,136 @@ function renderLeaderboard(rows){
       <td style="text-align:right;padding:6px">${r.score??0}</td>`;
     tb.appendChild(tr);
   });
-  console.log("Leaderboard updated:", rows.length);
 }
-
 function startLeaderboard(){
   if(!RTDB_ENABLED) return;
   db.ref("scores_v1").orderByChild("score").limitToLast(50).on("value", snap=>{
     const arr=[]; snap.forEach(c=>arr.push(c.val()));
     arr.sort((a,b)=>(b.score||0)-(a.score||0));
     renderLeaderboard(arr);
-  }, err=> console.error(err));
+  });
 }
 startLeaderboard();
 
 /* ==========================================================
-   (4) 초간단 테트리스 (필요 부분만) + 게임오버 연결
+   3) 테트리스 — 다듬은 룰/가속/점수
    ========================================================== */
-const cvs = $("#game"), ctx = cvs.getContext("2d");
-const W=10,H=20,S=24; // 보드 10x20, 셀 크기 24px
-cvs.width = W*S; cvs.height = H*S;
-const colors = ["#000","#36b24d","#5bc0de","#f0ad4e","#d9534f","#8e44ad","#3498db","#2ecc71"];
+const cvs=$("#game"), ctx=cvs.getContext("2d");
+const COL=10, ROW=20, CELL=24;
+cvs.width=COL*CELL; cvs.height=ROW*CELL;
+const COLORS=["#000","#36b24d","#5bc0de","#f0ad4e","#d9534f","#8e44ad","#3498db","#2ecc71"];
+const SHAPES={I:[[1,1,1,1]],O:[[2,2],[2,2]],T:[[0,3,0],[3,3,3]],S:[[0,4,4],[4,4,0]],Z:[[5,5,0],[0,5,5]],J:[[6,0,0],[6,6,6]],L:[[0,0,7],[7,7,7]]};
+const rndShape=()=>{const k=Object.keys(SHAPES);const s=k[Math.floor(Math.random()*k.length)];return SHAPES[s].map(r=>r.slice());};
 
-const SHAPES = {
-  I:[[1,1,1,1]],
-  O:[[2,2],[2,2]],
-  T:[[0,3,0],[3,3,3]],
-  S:[[0,4,4],[4,4,0]],
-  Z:[[5,5,0],[0,5,5]],
-  J:[[6,0,0],[6,6,6]],
-  L:[[0,0,7],[7,7,7]]
-};
-function rndShape(){
-  const keys = Object.keys(SHAPES);
-  const k = keys[Math.floor(Math.random()*keys.length)];
-  return SHAPES[k].map(r=>r.slice());
-}
-const board = Array.from({length:H},()=>Array(W).fill(0));
-let cur = {m:rndShape(), x:3, y:0};
-let score=0, lines=0, level=1, running=false, last=0, startMs=0;
+const board = Array.from({length:ROW},()=>Array(COL).fill(0));
+let piece={m:rndShape(),x:3,y:0};
+let score=0, lines=0, level=1, running=false, startMs=0, lastDrop=0, rafId=0;
 
-function rotate(m){
-  const h=m.length,w=m[0].length;
-  const r=Array.from({length:w},()=>Array(h).fill(0));
-  for(let y=0;y<h;y++) for(let x=0;x<w;x++) r[x][h-1-y]=m[y][x];
-  return r;
-}
-function collide(nx,ny,m=cur.m){
-  for(let y=0;y<m.length;y++)for(let x=0;x<m[0].length;x++){
-    if(!m[y][x]) continue;
-    const px=nx+x, py=ny+y;
-    if(px<0||px>=W||py>=H) return true;
+const rotate=m=>{ const h=m.length,w=m[0].length,n=Array.from({length:w},()=>Array(h).fill(0));
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) n[x][h-1-y]=m[y][x]; return n; };
+function collides(nx,ny,m=piece.m){
+  for(let y=0;y<m.length;y++) for(let x=0;x<m[0].length;x++){
+    if(!m[y][x]) continue; const px=nx+x, py=ny+y;
+    if(px<0||px>=COL||py>=ROW) return true;
     if(py>=0 && board[py][px]) return true;
   } return false;
 }
-function merge(){
-  cur.m.forEach((row,dy)=>{
-    row.forEach((v,dx)=>{
-      if(v && cur.y+dy>=0) board[cur.y+dy][cur.x+dx]=v;
-    });
-  });
-}
+function merge(){ piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) board[piece.y+dy][piece.x+dx]=v; })); }
 function clearLines(){
-  let cnt=0;
-  for(let y=H-1;y>=0;y--){
-    if(board[y].every(v=>v)){ board.splice(y,1); board.unshift(Array(W).fill(0)); cnt++; y++; }
+  let c=0;
+  for(let y=ROW-1;y>=0;y--){
+    if(board[y].every(v=>v)){ board.splice(y,1); board.unshift(Array(COL).fill(0)); c++; y++; }
   }
-  if(cnt){
-    score += [0,100,300,500,800][cnt];
-    lines += cnt;
-    level = 1 + Math.floor(lines/10);
+  if(c){
+    const add=[0,100,300,500,800][c]; // 표준 룰에 가까운 가중치
+    score+=add; lines+=c; level=1+Math.floor(lines/10);
   }
 }
-function spawn(){
-  cur = {m:rndShape(), x:3, y:0};
-  if(collide(cur.x,cur.y)) return false; // 스폰 충돌 → 게임오버
-  return true;
-}
-function drawCell(x,y,v){
-  ctx.fillStyle = v?colors[v]:"#0a0f22";
-  ctx.fillRect(x*S,y*S,S-1,S-1);
-}
+function spawn(){ piece={m:rndShape(),x:3,y:0}; return !collides(piece.x,piece.y); }
+
+function drawCell(x,y,v){ ctx.fillStyle=v?COLORS[v]:"#0a0f22"; ctx.fillRect(x*CELL,y*CELL,CELL-1,CELL-1); }
 function draw(){
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++) drawCell(x,y,board[y][x]);
-  // 현재 조각
-  cur.m.forEach((row,dy)=>row.forEach((v,dx)=>{
-    if(v && cur.y+dy>=0) drawCell(cur.x+dx,cur.y+dy,v);
-  }));
+  for(let y=0;y<ROW;y++) for(let x=0;x<COL;x++) drawCell(x,y,board[y][x]);
+  piece.m.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&piece.y+dy>=0) drawCell(piece.x+dx,piece.y+dy,v); }));
   $("#sc").textContent=score; $("#ln").textContent=lines; $("#lv").textContent=level;
 }
-function drop(){
+function tick(){
   if(!running) return;
-  if(!collide(cur.x,cur.y+1)){ cur.y++; }
-  else{
-    merge(); clearLines();
-    if(!spawn()){ gameOver(); return; }
-  }
+  const speed = Math.max(70, 720 - level*55); // 레벨이 오를수록 빨라짐(최소 70ms)
+  const now = performance.now();
+  if(now - lastDrop > speed){ stepDown(); lastDrop=now; }
+  draw(); rafId=requestAnimationFrame(tick);
 }
-function loop(t){
-  if(!running) return;
-  const speed = Math.max(60, 700 - level*50);
-  if(t-last>speed){ drop(); last=t; }
-  draw();
-  requestAnimationFrame(loop);
+function stepDown(){
+  if(!collides(piece.x,piece.y+1)){ piece.y++; }
+  else{ merge(); clearLines(); if(!spawn()){ gameOver(); return; } }
 }
+function softDrop(){ if(collides(piece.x,piece.y+1)) return; piece.y++; score+=1; }           // 소프트드롭 보너스
 function hardDrop(){
-  while(!collide(cur.x,cur.y+1)) cur.y++;
-  merge(); clearLines();
-  if(!spawn()) { gameOver(); return; }
-  draw();
-}
-function gameStart(){
-  board.forEach(r=>r.fill(0)); spawn();
-  score=0;lines=0;level=1; running=true; startMs=Date.now();
-  $("#gameOver").style.display="none";
-  requestAnimationFrame(loop);
-}
-function gameOver(){
-  running=false;
-  $("#gameOver").style.display="flex";
-  const nick = $("#nickname")?.value || "Guest";
-  const dur  = Date.now()-startMs;
-  submitScore(nick, score, "KR", dur); // ← 업로드 연결
+  let moved=0; while(!collides(piece.x,piece.y+1)){ piece.y++; moved++; }
+  score += 2*moved; // 하드드롭 보너스
+  merge(); clearLines(); if(!spawn()) { gameOver(); return; } draw();
 }
 
-// controls
+function gameStart(){
+  cancelAnimationFrame(rafId);
+  for(const r of board) r.fill(0);
+  score=0; lines=0; level=1; spawn();
+  running=true; startMs=Date.now(); lastDrop=0;
+  $("#gameOver").style.display="none";
+  requestAnimationFrame(tick);
+}
+function gameOver(){
+  if(!running) return;
+  running=false; $("#gameOver").style.display="flex";
+  const nick=$("#nickname")?.value || "Guest";
+  const dur=Date.now()-startMs;
+  submitScore(nick, score, "KR", dur); // 0점/3초 미만은 내부 가드로 차단
+}
+
+/* 키보드 */
 window.addEventListener("keydown",e=>{
   if(!running) return;
-  if(e.code==="ArrowLeft" && !collide(cur.x-1,cur.y)) cur.x--;
-  else if(e.code==="ArrowRight" && !collide(cur.x+1,cur.y)) cur.x++;
-  else if(e.code==="ArrowDown" && !collide(cur.x,cur.y+1)) cur.y++;
-  else if(e.code==="ArrowUp"){
-    const r=rotate(cur.m); if(!collide(cur.x,cur.y,r)) cur.m=r;
-  }else if(e.code==="Space"){ e.preventDefault(); hardDrop(); }
+  if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y)) piece.x--;
+  else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y)) piece.x++;
+  else if(e.code==="ArrowDown"){ if(!collides(piece.x,piece.y+1)){ softDrop(); } }
+  else if(e.code==="ArrowUp"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
+  else if(e.code==="Space"){ e.preventDefault(); hardDrop(); }
   draw();
 });
 
-// buttons
-$("#btnStart").onclick = ()=>{ if(!running) gameStart(); };
-$("#btnRestart").onclick= ()=>{ gameStart(); };
+/* 모바일 터치 컨트롤러 */
+const ctrls = document.querySelectorAll(".ctl");
+let holdTimer=null, repeatTimer=null;
+function startHold(action){
+  doAction(action);
+  holdTimer=setTimeout(()=>{ repeatTimer=setInterval(()=>doAction(action),80); },280);
+}
+function endHold(){ clearTimeout(holdTimer); clearInterval(repeatTimer); }
+function doAction(act){
+  if(!running) return;
+  if(act==="left" && !collides(piece.x-1,piece.y)) piece.x--;
+  else if(act==="right" && !collides(piece.x+1,piece.y)) piece.x++;
+  else if(act==="down"){ if(!collides(piece.x,piece.y+1)){ softDrop(); } }
+  else if(act==="rotate"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
+  else if(act==="drop"){ hardDrop(); }
+  draw();
+}
+ctrls.forEach(btn=>{
+  btn.addEventListener("touchstart",e=>{ e.preventDefault(); startHold(btn.dataset.act); },{passive:false});
+  btn.addEventListener("touchend",  e=>{ e.preventDefault(); endHold(); },{passive:false});
+  btn.addEventListener("mousedown", e=>{ e.preventDefault(); startHold(btn.dataset.act); });
+  btn.addEventListener("mouseup",   e=>{ e.preventDefault(); endHold(); });
+  btn.addEventListener("mouseleave",e=>{ e.preventDefault(); endHold(); });
+});
+
+/* 버튼 */
+$("#btnStart").addEventListener("click", ()=>gameStart());
+$("#btnRestart").addEventListener("click",()=>gameStart());
+
+/* 초기 렌더 및 모바일 컨트롤 on */
 draw();
+document.addEventListener("touchstart",()=>{ document.getElementById("touchCtrls").style.display="flex"; },{once:true});
 </script>
 </body>
 </html>
