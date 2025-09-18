@@ -97,9 +97,20 @@
   </main>
 
 <script>
-/* ==========================================================
-   0) Firebase 설정 (당신이 준 값으로 채움)
-   ========================================================== */
+/* ─────────────────────────────────────────────────────────
+   공용 셀렉터 & 상태바 (가장 먼저 정의)  ← 중요: 초기 에러 방지
+────────────────────────────────────────────────────────── */
+const $ = sel => document.querySelector(sel);
+function setStatus(msg, ok=false){
+  const el = $("#status"); if(!el) return;
+  el.textContent = msg;
+  el.className = ok ? "ok" : "danger";
+  el.style.display="inline-block";
+}
+
+/* ─────────────────────────────────────────────────────────
+   Firebase 설정 (당신이 준 값)
+────────────────────────────────────────────────────────── */
 const firebaseConfig = {
   apiKey: "AIzaSyAHQng1yYRaIgSIMOHEJvKcKkUGjUQWkP0",
   authDomain: "grit-championship-v02.firebaseapp.com",
@@ -110,43 +121,40 @@ const firebaseConfig = {
   appId: "1:644513888198:web:baa0728174614bb68124c7",
   measurementId: "G-F8JGH16CR6"
 };
-let db=null;
+
+let db=null, RTDB_ENABLED=false;
 try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.database();
+  RTDB_ENABLED = !!db;
   setStatus("Firebase 연결 OK / Connected — 점수 업로드 가능", true);
 }catch(e){
   setStatus("Firebase 연결 실패 / Init failed", false);
   console.warn("Firebase init failed:", e);
 }
-const RTDB_ENABLED = !!db;
 
-/* 공용 셀렉터 & 상태바 */
-const $ = sel => document.querySelector(sel);
-function setStatus(msg, ok=false){
-  const el = $("#status"); if(!el) return;
-  el.textContent = msg; el.className = ok ? "ok" : "danger"; el.style.display="inline-block";
-}
-
-/* ==========================================================
-   1) 국가코드: 기본 KR, (원하면) Worker URL만 넣으면 자동 감지
-   ========================================================== */
+/* ─────────────────────────────────────────────────────────
+   국가코드: 기본 KR, Worker URL 넣으면 자동감지
+────────────────────────────────────────────────────────── */
 let USER_COUNTRY = "KR";
 async function detectCountry(){
-  const WORKER_URL = ""; // ← 나중에 https://your-worker.workers.dev/ 로 교체하면 자동감지됨
+  const WORKER_URL = ""; // ← 배포 후 https://YOUR-NAME.workers.dev/ 로 변경
   if(!WORKER_URL){ $("#countryBadge").textContent = USER_COUNTRY; return; }
   try{
     const r = await fetch(WORKER_URL, {mode:"cors"});
     if(!r.ok) throw new Error("bad status");
     const j = await r.json();
     if(j && j.country){ USER_COUNTRY = String(j.country).toUpperCase(); }
-  }catch(e){ console.warn("geo detect fail", e); USER_COUNTRY="KR"; }
+  }catch(e){
+    console.warn("geo detect fail", e);
+    USER_COUNTRY="KR";
+  }
   $("#countryBadge").textContent = USER_COUNTRY;
 }
 
-/* ==========================================================
-   2) 점수 업로드 + 리더보드 (0점 숨김)
-   ========================================================== */
+/* ─────────────────────────────────────────────────────────
+   점수 업로드 + 리더보드 (0점/3초 미만 차단)
+────────────────────────────────────────────────────────── */
 async function submitScore(nickname, score, country="KR", durationMs=0){
   if(!RTDB_ENABLED) return console.warn("RTDB disabled");
   if(durationMs < 3000) return console.warn("Playtime too short (<3s) — blocked");
@@ -189,9 +197,9 @@ function startLeaderboard(){
 }
 startLeaderboard();
 
-/* ==========================================================
-   3) 테트리스 — 시작/재시작 안정화 & 입력/타이머 연결
-   ========================================================== */
+/* ─────────────────────────────────────────────────────────
+   테트리스 로직 (시작/재시작 안정화)
+────────────────────────────────────────────────────────── */
 const cvs=$("#game"), ctx=cvs.getContext("2d");
 const COL=10, ROW=20, CELL=24;
 cvs.width=COL*CELL; cvs.height=ROW*CELL;
@@ -200,7 +208,7 @@ const SHAPES={I:[[1,1,1,1]],O:[[2,2],[2,2]],T:[[0,3,0],[3,3,3]],S:[[0,4,4],[4,4,
 const rndShape=()=>{const k=Object.keys(SHAPES);const s=k[Math.floor(Math.random()*k.length)];return SHAPES[s].map(r=>r.slice());};
 
 const board = Array.from({length:ROW},()=>Array(COL).fill(0));
-let piece=null;           // 시작 전에는 조각 생성 X (초기 화면에 떠보이는 현상 방지)
+let piece=null;
 let score=0, lines=0, level=1;
 let running=false, startMs=0, lastDrop=0, rafId=0;
 
@@ -308,7 +316,7 @@ $("#btnRestart").addEventListener("click",()=>gameStart());
 
 /* 초기화 */
 draw();
-detectCountry();                                 // 국가 뱃지 갱신 (기본 KR)
+detectCountry();                                 // 국가 배지 갱신 (기본 KR, Worker URL 넣으면 자동)
 document.addEventListener("touchstart",()=>{     // 모바일 첫 터치 시 컨트롤러 노출
   document.getElementById("touchCtrls").style.display="flex";
 },{once:true});
