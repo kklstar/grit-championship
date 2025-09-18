@@ -3,434 +3,417 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>천하제일 근성 대회 (World Grit Championship)</title>
+<title>천하제일 근성 대회</title>
 <style>
   :root{
-    --bg:#0b1020;--panel:#0f1630;--fg:#e7f0ff;--muted:#9aa6c7;--line:#1b2548;
-    --accent:#4da3ff;--danger:#ff5666;--ok:#22cc71;--gold:#ffd86b;
+    --bg:#0b1020; --panel:#0f1630; --fg:#e7f0ff; --muted:#99a8c7; --line:#1b2548;
+    --accent:#49b2ff; --gold:#ffd86b; --danger:#ff5666; --ok:#2ecc71;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
-  header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  header h1{font-size:18px;margin:0}
-  .flag{display:inline-block;border:1px solid rgba(255,255,255,.15);padding:2px 8px;border-radius:999px;font-size:12px}
-  main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
-  @media (max-width: 980px){ main{grid-template-columns:1fr} }
-
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;position:relative}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-
-  /* 캔버스 */
-  canvas{background:#001328;border:1px solid #223068;border-radius:12px;display:block;margin:auto;outline:none}
-
-  /* 팝업 오버레이 */
-  .overlay{position:absolute;inset:14px;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:5;border-radius:12px}
-  .overlay.open{display:flex}
-  .overlay-card{width:260px;padding:18px;background:#111827;color:#e5e7eb;border:1px solid #1f2937;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);text-align:center}
-  .overlay-card h3{margin:0 0 6px;font-size:18px}
-  .overlay-card .hint{margin:0 0 12px;color:#9ca3af;font-size:13px}
-  .overlay-card .field{margin-bottom:10px}
-  #nickname{width:100%;height:38px;padding:0 10px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;outline:none}
-  #nickname:focus{border-color:#2563eb}
-  .btn{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:#152044;color:var(--fg);cursor:pointer}
-  .btn-primary{width:100%;height:38px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
-  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
-  .controls{margin-top:12px;color:#9ca3af;font-size:12px}
-
-  /* 리더보드 */
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,Apple SD Gothic Neo,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
+  header{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+  header h1{font-size:18px;margin:0 6px 0 0;letter-spacing:.2px}
+  .flag{display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:999px;font-size:11px;padding:2px 8px}
+  main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  @media(max-width:1000px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .left{position:relative}
+  .board{display:block;margin:0 auto;border-radius:10px;border:1px solid #223060;background:#09152c}
+  .hud{display:flex;justify-content:space-between;margin-top:6px;font-size:14px;color:#9fb0d2}
+  .ok{background:linear-gradient(180deg,#19c27a,#06a46a);border:0;color:#fff;border-radius:10px;padding:7px 10px;font-weight:700}
+  .ghost{background:transparent;border:1px solid #3a4a7a;color:#cfe6ff;border-radius:10px;padding:6px 10px}
+  .tabs{display:flex;gap:8px;margin-bottom:10px}
+  .tab{padding:7px 10px;border-bottom:1px solid var(--line);background:transparent;border-radius:10px;font-weight:600}
+  .tab.active{background:#152a5a;color:#fff}
   table{width:100%;border-collapse:collapse}
-  th,td{padding:9px 10px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
-  th{color:#c7d0ff;text-align:left}
-  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-  .tag{padding:6px 10px;border-radius:999px;border:1px solid var(--line);color:#9bb8ff;background:#0e1630}
-  .status{padding:8px 12px;border-radius:10px;margin-bottom:10px}
-  .status.ok{background:#0b3a1f;color:#b9ffd5;border:1px solid #135d36}
-  .status.warn{background:#3a1118;color:#ffd0d6;border:1px solid #6a1a28}
-
-  footer{padding:16px;color:#9aa6c7;text-align:center}
+  th,td{font-size:14px;padding:10px;border-bottom:1px dashed rgba(255,255,255,.06);text-align:left}
+  th{color:#9fb0d2}
+  .notice{margin:8px 0 0 0;font-size:12px;color:#8aa0c8}
+  .status{display:none;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;border-radius:10px}
+  .status.ok{display:flex;background:#0f2d1f;color:#b9ffd7;border:1px solid #1f6143}
+  .status.save{display:flex;background:#1a2d17;color:#c8ffc2;border:1px solid #335f2b}
+  footer{color:#7d8fb3;text-align:center;padding:16px 8px;border-top:1px solid var(--line)}
+  /* overlay */
+  .overlay{
+    position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,20,.75),rgba(7,8,20,.92));
+    display:flex;align-items:center;justify-content:center;border-radius:12px
+  }
+  .overlay > .modal{
+    width:85%;max-width:260px;background:rgba(13,18,42,.9);border:1px solid #24305a;border-radius:14px;padding:16px;text-align:center
+  }
+  .modal h3{margin:0 0 10px 0;font-size:16px}
+  .modal input{
+    width:100%;padding:10px;border-radius:10px;border:1px solid #2c3a6a;background:#0e1736;color:#fff
+  }
+  .modal .btn{width:100%;margin-top:10px}
+  /* toasts */
+  .toast{display:none;border-radius:10px;margin-bottom:8px;padding:6px 10px}
+  .toast.ok{display:flex;background:#0f2d1f;color:#b9ffd7;border:1px solid #1f6143}
+  .toast.warn{display:flex;background:#2b1518;color:#fedada;border:1px solid #7b303a}
 </style>
 </head>
 <body>
-  <header>
-    <h1>천하제일 근성 대회</h1>
-    <span class="flag" id="countryBadge">KR</span>
-    <div class="tag" id="firebaseState">Firebase 연결 확인 중…</div>
-  </header>
+<header>
+  <h1>천하제일 근성 대회</h1>
+  <span class="flag" id="countryFlag">KR</span>
+  <span id="fbStatus" class="status">Firebase 연결 상태</span>
+</header>
 
-  <main>
-    <!-- 왼쪽: 게임 -->
-    <section class="card" id="gameCard">
-      <div class="row" style="justify-content:space-between;margin-bottom:8px">
-        <div class="row" style="gap:6px">
-          <strong>AD —</strong><span style="color:#9aa6c7">여기에 배너/스크립트</span>
-        </div>
+<main>
+  <!-- LEFT: 게임 -->
+  <section class="card left">
+    <canvas id="board" class="board" width="300" height="540"></canvas>
+    <div class="hud">
+      <span>점수 <b id="sc">0</b></span>
+      <span>라인 <b id="ln">0</b></span>
+      <span>레벨 <b id="lv">1</b></span>
+    </div>
+
+    <!-- 닉네임/시작 & 재시작 오버레이 -->
+    <div id="startOverlay" class="overlay">
+      <div class="modal">
+        <h3 id="overlayTitle">시작 / Restart</h3>
+        <p class="notice">닉네임을 입력하고 시작하세요.</p>
+        <input id="nickInput" placeholder="닉네임 / 2자 이상" minlength="2" maxlength="16" />
+        <button id="startBtn" class="ok btn">시작</button>
+        <p class="notice">조작키: ← → 이동 · ↑ 회전 · ↓ 소프트드롭 · Space 하드드롭</p>
       </div>
+    </div>
 
-      <canvas id="board" width="300" height="600" tabindex="0" aria-label="Tetris board"></canvas>
+    <!-- 토스트 -->
+    <div id="saveToast" class="toast ok" style="position:absolute;left:12px;right:12px;bottom:12px">점수 저장 완료 / Saved</div>
+    <div id="blockToast" class="toast warn" style="position:absolute;left:12px;right:12px;bottom:12px">접속이 제한되었습니다.</div>
+  </section>
 
-      <!-- 게임 시작/재시작 팝업 -->
-      <div id="startOverlay" class="overlay open" aria-modal="true" role="dialog">
-        <div class="overlay-card">
-          <h3>재시작 / Restart</h3>
-          <p class="hint">닉네임을 입력하고 시작하세요.</p>
-          <div class="field">
-            <input id="nickname" type="text" minlength="2" maxlength="16" placeholder="닉네임 / Nickname (2자 이상)" autocomplete="off"/>
-          </div>
-          <button id="startBtn" type="button" class="btn-primary">시작</button>
-          <div class="controls">조작키: ← → 이동 · ↑ 회전 · ↓ 소프트드롭 · Space 하드드롭</div>
-        </div>
-      </div>
+  <!-- RIGHT: 리더보드 -->
+  <section class="card">
+    <div class="tabs">
+      <button class="tab active" id="tabAll">ALL</button>
+      <button class="tab" id="tabWeek">This Week</button>
+      <button class="tab" id="tabMonth">This Month</button>
+      <span style="flex:1"></span>
+      <button class="tab active" id="tabCountryAll">ALL</button>
+      <button class="tab" id="tabCountryKR">KR</button>
+    </div>
 
-      <div class="row" style="margin-top:10px;justify-content:space-between">
-        <div>점수 / Score <b id="score">0</b>　라인 / Lines <b id="lines">0</b>　레벨 / Level <b id="level">1</b></div>
-      </div>
-    </section>
+    <div id="rtToast" class="status ok">실시간 업데이트 (Firebase RTDB)</div>
+    <div id="savedToast" class="status save">점수 저장 완료 / Saved</div>
 
-    <!-- 오른쪽: 리더보드 -->
-    <section class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <h3 style="margin:0">리더보드 / Leaderboard</h3>
-        <div class="toolbar">
-          <button class="btn" data-range="all"   id="btnAll">ALL</button>
-          <button class="btn" data-range="week"  id="btnWeek">This Week</button>
-          <button class="btn" data-range="month" id="btnMonth">This Month</button>
-          <span style="width:10px"></span>
-          <button class="btn" data-country="ALL" id="btnCountryAll">ALL</button>
-          <button class="btn" data-country="KR"  id="btnCountryKR">KR</button>
-        </div>
-      </div>
+    <table>
+      <thead><tr><th style="width:60px">#</th><th>닉네임 / Nickname</th><th style="width:120px">국가 / Country</th><th style="width:120px">점수 / Score</th></tr></thead>
+      <tbody id="rankBody"><tr><td colspan="4" class="notice">데이터 없음</td></tr></tbody>
+    </table>
 
-      <div id="statusBar" class="status warn">Firebase 미설정 상태입니다.</div>
-      <div class="status ok" id="saveToast" style="display:none">점수 저장 완료 / Saved</div>
+    <p class="notice">교육/프로토타입용 데모. 운영 전 서버 검증/보안 규칙 강화 필요.</p>
+  </section>
+</main>
 
-      <div style="width:100%;overflow:auto;max-height:62vh">
-        <table>
-          <thead><tr><th>#</th><th>닉네임 / Nickname</th><th>국가 / Country</th><th>점수 / Score</th></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+<footer>© demo — Firebase RTDB + 클라이언트 테트리스</footer>
 
-  <footer>교육/프로토타입용 데모. 운영 전 서버 검증/보안 규칙 강화 필요.</footer>
+<!-- Firebase v10 compat (이미 사용중인 버전이면 그대로 유지) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <!-- Firebase v9 compat CDN (간단 통합을 위해 compat 사용) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ===== 환경설정 ===== */
+const CONFIG = {
+  COUNTRY_API: 'https://tetris.kklstar2.workers.dev/country', // Cloudflare Worker 엔드포인트 (아래 코드 참고)
+  BLOCK_CN: true,        // 중국 차단 on/off
+  USE_AUTOSAVE: true,    // 게임 종료 시 1회 자동 저장
+  WEEK_OFFSET: 0,        // 0=이번주, -1=지난주
+};
 
-  <script>
-  /***********************
-   * 1) 환경설정
-   ***********************/
-  // 🔧 Cloudflare Worker 국가 감지 엔드포인트 (당신 주소로 교체)
-  const COUNTRY_API = 'https://tetris.kklstar2.workers.dev'; // ← 예시: 배포한 워커 주소
+/* ===== Firebase 설정 (본인 값으로 유지) ===== */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER",
+  appId: "YOUR_APPID",
+};
+let app, db, RTDB_ENABLED = false;
+try{
+  app = firebase.initializeApp(firebaseConfig);
+  db  = firebase.database();
+  RTDB_ENABLED = true;
+  setStatus('fbStatus','ok','Firebase 연결 OK / Connected — 점수 업로드 가능');
+  document.getElementById('rtToast').style.display='flex';
+}catch(e){
+  setStatus('fbStatus','warn','Firebase 미설정 / 점수 업로드 OFF');
+  console.warn(e);
+}
 
-  // 🔧 Firebase 프로젝트 설정 (앞서 주신 값으로 채움)
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyAHQng1yYRaIgSIMOHEJvKcKkUGjUQWkP0",
-    authDomain: "grit-championship-v02.firebaseapp.com",
-    databaseURL: "https://grit-championship-v02-default-rtdb.firebaseio.com",
-    projectId: "grit-championship-v02",
-    storageBucket: "grit-championship-v02.firebasestorage.app",
-    messagingSenderId: "644513888198",
-    appId: "1:644513888198:web:baa0728174614bb68124c7",
-    measurementId: "G-F8JGH16CR6"
-  };
+/* ===== DOM ===== */
+const cvs = document.getElementById('board'), ctx = cvs.getContext('2d');
+const scEl = document.getElementById('sc'), lnEl = document.getElementById('ln'), lvEl = document.getElementById('lv');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const nickInput = document.getElementById('nickInput');
+const overlayTitle = document.getElementById('overlayTitle');
+const saveToast = document.getElementById('saveToast');
+const savedToast = document.getElementById('savedToast');
+const flagEl = document.getElementById('countryFlag');
 
-  let app, db, RTDB_ENABLED=false;
-  let country = 'KR';
-  let nickname = '';
-
-  const countryBadge  = document.getElementById('countryBadge');
-  const firebaseState = document.getElementById('firebaseState');
-  const statusBar     = document.getElementById('statusBar');
-  const saveToast     = document.getElementById('saveToast');
-
-  // 국가 감지 (Cloudflare Worker)
-  async function detectCountry(){
-    try{
-      const r = await fetch(COUNTRY_API,{mode:'cors'});
-      const j = await r.json();
-      country = (j.country || 'KR').toUpperCase();
-    }catch(e){ country = 'KR'; }
-    countryBadge.textContent = country;
+/* ===== 국가 감지 & CN 차단 ===== */
+let country = 'KR';
+(async () => {
+  try{
+    const r = await fetch(CONFIG.COUNTRY_API, {cache:'no-store'});
+    const j = await r.json();
+    country = (j.country || 'KR').toUpperCase();
+  }catch(e){ country = 'KR'; }
+  flagEl.textContent = country;
+  if(CONFIG.BLOCK_CN && country === 'CN'){
+    // 게임 차단 (클라이언트 레벨)
+    document.querySelector('.left').innerHTML = `
+      <div class="overlay" style="position:relative;inset:auto;height:540px">
+        <div class="modal"><h3>접속 제한</h3><p>중국 지역에서는 이용할 수 없습니다.</p></div>
+      </div>`;
+    document.getElementById('blockToast').style.display='block';
+    throw new Error('blocked CN');
   }
+})();
 
-  // Firebase 연결
-  function connectFirebase(){
-    try{
-      app = firebase.initializeApp(FIREBASE_CONFIG);
-      db  = firebase.database();
-      RTDB_ENABLED = true;
-      firebaseState.textContent = 'Firebase 연결 OK / Connected — 점수 업로드 가능';
-      firebaseState.style.background = '#10391f';
-      firebaseState.style.color = '#bffad5';
-      statusBar.className='status ok';
-      statusBar.textContent='실시간 업데이트 (Firebase RTDB)';
-    }catch(e){
-      RTDB_ENABLED=false;
-      firebaseState.textContent = 'Firebase 연결 실패';
-      statusBar.className='status warn';
-      statusBar.textContent='Firebase 미설정 상태입니다.';
-    }
-  }
+/* ===== 테트리스(아주 간단한 버전) ===== */
+const COLS=10, ROWS=18, S=30;
+cvs.width = COLS*S; cvs.height = ROWS*S+ (S*?0:0);
+const SHAPES = {
+  I:[[1,1,1,1]],
+  J:[[2,0,0],[2,2,2]],
+  L:[[0,0,3],[3,3,3]],
+  O:[[4,4],[4,4]],
+  S:[[0,5,5],[5,5,0]],
+  T:[[0,6,0],[6,6,6]],
+  Z:[[7,7,0],[0,7,7]],
+};
+const COLORS = ['#000','#69e2ff','#6aa6ff','#f7b26a','#ffd86b','#69ffa1','#947cff','#ff6aa1'];
 
-  /***********************
-   * 2) 테트리스 (간단 구현)
-   ***********************/
-  const W=10,H=20;             // 보드
-  const S=30;                  // 셀 크기
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d');
+let grid, cur, x, y, score, lines, level, running=false, dropT=null, savedThisRound=false;
+let iGuarantee=12, iAppeared=0; // 12회 이내 I조각 보장
 
-  let grid, cur, x,y,rot, score=0, lines=0, level=1, dropTI=null, dropDelay=800;
-  let rngBag=[], lastI=0;      // I조각 보장 로직
-  const scoreEl=document.getElementById('score');
-  const linesEl=document.getElementById('lines');
-  const levelEl=document.getElementById('level');
+function reset(){
+  grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  score=0; lines=0; level=1; savedThisRound=false; iAppeared=0;
+  scEl.textContent=score; lnEl.textContent=lines; lvEl.textContent=level;
+  spawn(); draw();
+}
+function rndTet(){
+  // 12회 안에 I가 반드시 나오도록 보정
+  const keys = Object.keys(SHAPES);
+  if(iAppeared >= iGuarantee-1){ iAppeared=0; return 'I'; }
+  const k = keys[(Math.random()*keys.length)|0];
+  if(k==='I'){ iAppeared=0; } else { iAppeared++; }
+  return k;
+}
+function spawn(){
+  const k=rndTet(); cur=SHAPES[k].map(r=>r.slice()); x=3; y=0;
+}
+function rotate(a){ // 시계
+  const h=a.length,w=a[0].length; const r=Array.from({length:w},()=>Array(h).fill(0));
+  for(let i=0;i<h;i++)for(let j=0;j<w;j++)r[j][h-1-i]=a[i][j]; return r;
+}
+function collide(nx=x,ny=y,nc=cur){
+  for(let i=0;i<nc.length;i++)for(let j=0;j<nc[0].length;j++){
+    if(!nc[i][j])continue;
+    const yy=ny+i, xx=nx+j;
+    if(xx<0||xx>=COLS||yy>=ROWS)return true;
+    if(yy>=0&&grid[yy][xx])return true;
+  }
+  return false;
+}
+function merge(){
+  for(let i=0;i<cur.length;i++)for(let j=0;j<cur[0].length;j++){
+    if(cur[i][j] && y+i>=0) grid[y+i][x+j]=cur[i][j];
+  }
+  // 라인 클리어
+  let gained=0;
+  outer: for(let r=ROWS-1;r>=0;r--){
+    for(let c=0;c<COLS;c++){ if(!grid[r][c]) continue outer; }
+    grid.splice(r,1); grid.unshift(Array(COLS).fill(0));
+    gained++; r++;
+  }
+  if(gained){
+    lines += gained; lnEl.textContent=lines;
+    const add = [0, 100, 300, 500, 800][gained] || (gained*200);
+    score += add; scEl.textContent=score;
+    level = 1 + Math.floor(lines/10); lvEl.textContent=level;
+  }
+}
+function step(){
+  if(!running) return;
+  if(!collide(x,y+1)) y++;
+  else{
+    merge();
+    if(y<=0){ // GAME OVER
+      running=false; cancelAnimationFrame(dropT); dropT=null;
+      drawGameOver(); onGameOver(); return;
+    }
+    spawn();
+  }
+  draw();
+  const sp = Math.max(70, 700 - (level-1)*60);
+  dropT = setTimeout(()=>requestAnimationFrame(step), sp);
+}
+function draw(){
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  // 고정블록
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(grid[r][c]) fillCell(c,r, COLORS[grid[r][c]]);
+  }
+  // 현재블록
+  for(let i=0;i<cur.length;i++)for(let j=0;j<cur[0].length;j++){
+    if(cur[i][j]) fillCell(x+j,y+i, COLORS[cur[i][j]]);
+  }
+}
+function drawGameOver(){
+  draw();
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle='#fff'; ctx.font='bold 30px ui-sans-serif'; ctx.textAlign='center';
+  ctx.fillText('GAME OVER', cvs.width/2, cvs.height/2);
+}
+function fillCell(c,r,color){
+  ctx.fillStyle=color; ctx.fillRect(c*S+1,r*S+1,S-2,S-2);
+}
 
-  const SHAPES = {
-    I:[[1,1,1,1]],
-    O:[[1,1],[1,1]],
-    T:[[1,1,1],[0,1,0]],
-    S:[[0,1,1],[1,1,0]],
-    Z:[[1,1,0],[0,1,1]],
-    J:[[1,0,0],[1,1,1]],
-    L:[[0,0,1],[1,1,1]],
-  };
-  const COLORS = {I:'#53e3ff',O:'#ffd86b',T:'#b984ff',S:'#66ffaa',Z:'#ff6f82',J:'#7fb0ff',L:'#ffb36b'};
+/* ===== 입력 ===== */
+document.addEventListener('keydown',e=>{
+  if(!running) return;
+  if(e.code==='ArrowLeft' && !collide(x-1,y)) x--;
+  else if(e.code==='ArrowRight' && !collide(x+1,y)) x++;
+  else if(e.code==='ArrowUp'){
+    const rot=rotate(cur); if(!collide(x,y,rot)) cur=rot;
+  }
+  else if(e.code==='ArrowDown' && !collide(x,y+1)) y++;
+  else if(e.code==='Space'){
+    while(!collide(x,y+1)) y++;
+  }
+  draw();
+});
 
-  function emptyGrid(){ grid=Array.from({length:H},()=>Array(W).fill(0)); }
-  function drawCell(px,py,color){ ctx.fillStyle=color; ctx.fillRect(px*S,py*S,S-1,S-1); }
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    // 스택
-    for(let r=0;r<H;r++)for(let c=0;c<W;c++){
-      if(grid[r][c]) drawCell(c,r,grid[r][c]);
-    }
-    // 현재 블럭
-    if(cur) for(let r=0;r<cur.length;r++)for(let c=0;c<cur[0].length;c++){
-      if(cur[r][c]) drawCell(x+c,y+r,COLORS[type]);
-    }
-  }
-  function rotate(mat){
-    const R=mat.length,C=mat[0].length;
-    const out=Array.from({length:C},()=>Array(R).fill(0));
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++) out[c][R-1-r]=mat[r][c];
-    return out;
-  }
-  function collide(nx,ny,nm){
-    for(let r=0;r<nm.length;r++)for(let c=0;c<nm[0].length;c++){
-      if(!nm[r][c]) continue;
-      const yy=ny+r,xx=nx+c;
-      if(xx<0||xx>=W||yy>=H) return true;
-      if(yy>=0 && grid[yy][xx]) return true;
-    }
-    return false;
-  }
-  let type='I';
-  function nextPiece(){
-    // 7-bag + I 빈도 증가 + 12회 이내 I 보장
-    if(rngBag.length===0){
-      rngBag=['I','I','O','T','S','Z','J','L']; // I 2개 넣어 빈도↑
-      // 섞기
-      for(let i=rngBag.length-1;i>0;i--){
-        const j=(Math.random()* (i+1))|0; [rngBag[i],rngBag[j]]=[rngBag[j],rngBag[i]];
-      }
-    }
-    if(lastI>=11){ type='I'; lastI=0; }
-    else { type = rngBag.pop(); lastI += (type==='I'?0:1); }
-    cur = SHAPES[type].map(row=>row.slice());
-    x = ((W - cur[0].length)/2)|0; y=-1; rot=0;
-    if(collide(x,y,cur)){ gameOver(); return false; }
-    return true;
-  }
-  function merge(){
-    for(let r=0;r<cur.length;r++)for(let c=0;c<cur[0].length;c++){
-      if(cur[r][c]){
-        const yy=y+r,xx=x+c; if(yy>=0) grid[yy][xx]=COLORS[type];
-      }
-    }
-  }
-  function clearLines(){
-    let cleared=0;
-    for(let r=H-1;r>=0;){
-      if(grid[r].every(v=>v)){ grid.splice(r,1); grid.unshift(Array(W).fill(0)); cleared++; }
-      else r--;
-    }
-    if(cleared){
-      score += [0,100,300,500,800][cleared] * level;
-      lines += cleared;
-      if(lines>=level*10){ level++; dropDelay=Math.max(120, dropDelay-60); restartDrop(); }
-      updateHUD();
-    }
-  }
-  function updateHUD(){
-    scoreEl.textContent=score; linesEl.textContent=lines; levelEl.textContent=level;
-  }
-  function stepDown(){
-    if(!collide(x,y+1,cur)) y++;
-    else{
-      merge(); clearLines();
-      nextPiece();
-    }
-    draw();
-  }
-  function restartDrop(){
-    if(dropTI) cancelAnimationFrame(dropTI);
-    // 간단한 타이머
-    let last=performance.now();
-    function loop(now){
-      if(now-last>=dropDelay){ stepDown(); last=now; }
-      dropTI = requestAnimationFrame(loop);
-    }
-    dropTI = requestAnimationFrame(loop);
-  }
+/* ===== 오버레이(시작/재시작) ===== */
+function openOverlay(title='시작 / Restart'){
+  overlayTitle.textContent = title;
+  nickInput.value = (localStorage.getItem('nickname') || '').slice(0,16);
+  startOverlay.style.display='flex';
+  nickInput.focus();
+}
+function closeOverlay(){
+  startOverlay.style.display='none';
+}
+startBtn.addEventListener('click',()=>{
+  const nn = nickInput.value.trim();
+  if(nn.length<2){ nickInput.focus(); return; }
+  nickname = nn; localStorage.setItem('nickname', nickname);
+  closeOverlay();
+  startGame();
+});
 
-  // 입력
-  window.addEventListener('keydown',e=>{
-    if(!cur) return;
-    if(e.key==='ArrowLeft' && !collide(x-1,y,cur)){ x--; draw(); }
-    if(e.key==='ArrowRight'&& !collide(x+1,y,cur)){ x++; draw(); }
-    if(e.key==='ArrowDown'){ stepDown(); }
-    if(e.key==='ArrowUp'){
-      const nm=rotate(cur);
-      if(!collide(x,y,nm)) { cur=nm; draw(); }
+/* ===== 게임 루프/상태 ===== */
+let nickname = localStorage.getItem('nickname') || '';
+openOverlay(nickname? '재시작 / Restart' : '시작 / Restart');
+
+function startGame(){
+  reset();
+  running=true;
+  requestAnimationFrame(step);
+}
+function onGameOver(){
+  // 1회 자동 저장(중복 방지 로직 내장)
+  if(CONFIG.USE_AUTOSAVE) saveScoreOnce();
+  // 재시작 팝업 (닉네임 함께)
+  openOverlay('재시작 / Restart');
+}
+
+/* ===== 점수 저장 (중복 방지) ===== */
+function todayKey(){ // YYYYMMDD
+  const d = new Date(); const m=('0'+(d.getMonth()+1)).slice(-2), dd=('0'+d.getDate()).slice(-2);
+  return `${d.getFullYear()}${m}${dd}`;
+}
+let savedHashThisRound = null;
+async function saveScoreOnce(){
+  if(!RTDB_ENABLED) return;
+  const composite = `${(nickname||'Guest')}|${score}|${todayKey()}`;
+  if(savedHashThisRound === composite) return; // 라운드 내 중복 방지
+  try{
+    // 서버측 중복 확인(닉네임+점수+일자)
+    const snap = await db.ref('scores_v1').orderByChild('composite').equalTo(composite).limitToFirst(1).get();
+    if(snap.exists()){
+      // 이미 동일 기록이 있으면 저장 스킵
+      console.log('duplicate skipped');
+    }else{
+      await db.ref('scores_v1').push({
+        nickname: nickname || `Guest${(Math.random()*9000+1000|0)}`,
+        country, score, ts: Date.now(), day: todayKey(), composite
+      });
+      savedHashThisRound = composite;
+      showSaved();
     }
-    if(e.code==='Space'){ // 하드드랍
-      while(!collide(x,y+1,cur)) y++;
-      stepDown();
-    }
+  }catch(e){ console.warn(e); }
+}
+function showSaved(){
+  savedToast.style.display='flex';
+  saveToast.style.display='block';
+  setTimeout(()=>{ savedToast.style.display='none'; saveToast.style.display='none'; }, 1500);
+}
+
+/* ===== 리더보드 실시간 ===== */
+const tbody = document.getElementById('rankBody');
+let filterCountry = 'ALL';
+let filterRange = 'ALL'; // ALL|WEEK|MONTH
+
+function refresh(){
+  if(!RTDB_ENABLED){ tbody.innerHTML='<tr><td colspan="4" class="notice">Firebase 미설정</td></tr>'; return; }
+  // 범위 필터
+  const now = Date.now();
+  let since = 0;
+  if(filterRange==='WEEK'){ const d=new Date(); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); since = d.getTime() - day*86400000; }
+  if(filterRange==='MONTH'){ const d=new Date(); d.setDate(1); d.setHours(0,0,0,0); since = d.getTime(); }
+
+  db.ref('scores_v1').orderByChild('score').limitToLast(200).on('value',snap=>{
+    const out=[];
+    snap.forEach(c=>{
+      const v=c.val(); v.id=c.key;
+      if(since && v.ts < since) return;
+      if(filterCountry!=='ALL' && v.country!==filterCountry) return;
+      out.push(v);
+    });
+    out.sort((a,b)=>b.score-a.score);
+    tbody.innerHTML = out.slice(0,100).map((v,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${escapeHtml(v.nickname)}</td>
+        <td>${v.country||'??'}</td>
+        <td>${v.score}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="4" class="notice">No data</td></tr>`;
   });
+}
+function escapeHtml(s){return (''+s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}
 
-  function resetGame(){
-    emptyGrid(); score=0; lines=0; level=1; dropDelay=800; updateHUD();
-    nextPiece(); draw(); restartDrop();
-  }
+document.getElementById('tabAll').onclick =()=>{ setTab('tabAll'); filterRange='ALL';  refresh(); };
+document.getElementById('tabWeek').onclick=()=>{ setTab('tabWeek');filterRange='WEEK'; refresh(); };
+document.getElementById('tabMonth').onclick=()=>{setTab('tabMonth');filterRange='MONTH';refresh(); };
+document.getElementById('tabCountryAll').onclick=()=>{ setTabCountry('tabCountryAll'); filterCountry='ALL'; refresh(); };
+document.getElementById('tabCountryKR').onclick =()=>{ setTabCountry('tabCountryKR');  filterCountry='KR';  refresh(); };
 
-  function gameOver(){
-    cancelAnimationFrame(dropTI); dropTI=null;
-    draw();
-    // 중앙 GAME OVER 텍스트
-    ctx.fillStyle='rgba(0,0,0,.55)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#fff'; ctx.font='bold 32px ui-sans-serif';
-    ctx.textAlign='center';
-    ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
-    ctx.font='14px ui-sans-serif';
-    ctx.fillText('다시 하려면 재시작 버튼을 누르세요', canvas.width/2, canvas.height/2 + 26);
+function setTab(id){
+  ['tabAll','tabWeek','tabMonth'].forEach(x=>document.getElementById(x).classList.toggle('active', x===id));
+}
+function setTabCountry(id){
+  ['tabCountryAll','tabCountryKR'].forEach(x=>document.getElementById(x).classList.toggle('active', x===id));
+}
 
-    // 점수 저장
-    saveScore(score).then(()=>{
-      saveToast.style.display='block';
-      setTimeout(()=>saveToast.style.display='none', 1500);
-      // 게임 재시작은 사용자가 팝업에서 다시 시작하도록
-      openStartOverlay();
-    });
-  }
+// 최초 로딩
+refresh();
 
-  /***********************
-   * 3) 시작 오버레이
-   ***********************/
-  const overlayEl  = document.getElementById('startOverlay');
-  const nicknameEl = document.getElementById('nickname');
-  const startBtnEl = document.getElementById('startBtn');
-
-  function openStartOverlay(){ overlayEl.classList.add('open'); setTimeout(()=>nicknameEl.focus(),0); }
-  function closeStartOverlay(){ overlayEl.classList.remove('open'); }
-
-  function validateNickname(n){ n=(n||'').trim(); return n.length>=2 && n.length<=16; }
-
-  function startGame(){
-    // 실제 게임 시작
-    resetGame();
-    // 포커스를 캔버스로
-    canvas.focus();
-  }
-
-  async function handleStartClick(){
-    const n = nicknameEl.value.trim();
-    if(!validateNickname(n)){
-      alert('닉네임을 2자 이상 입력해 주세요.'); nicknameEl.focus(); return;
-    }
-    nickname = n;
-    localStorage.setItem('nickname', nickname);
-    closeStartOverlay();
-    startGame();
-  }
-  startBtnEl.addEventListener('click',handleStartClick);
-  nicknameEl.addEventListener('keydown',e=>{ if(e.key==='Enter') handleStartClick(); });
-
-  // 닉네임 복원
-  const savedNick = localStorage.getItem('nickname')||''; if(savedNick) nicknameEl.value=savedNick;
-
-  /***********************
-   * 4) 점수 저장 + 리더보드
-   ***********************/
-  const tbody = document.getElementById('tbody');
-  let range='all';         // all/week/month
-  let countryFilter='ALL'; // ALL or KR
-
-  document.getElementById('btnAll').onclick   = ()=>{ range='all';   refreshBoard(); };
-  document.getElementById('btnWeek').onclick  = ()=>{ range='week';  refreshBoard(); };
-  document.getElementById('btnMonth').onclick = ()=>{ range='month'; refreshBoard(); };
-  document.getElementById('btnCountryAll').onclick=()=>{ countryFilter='ALL'; refreshBoard(); };
-  document.getElementById('btnCountryKR').onclick =()=>{ countryFilter='KR';  refreshBoard(); };
-
-  function weekStart(ts){ const d=new Date(ts); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); d.setHours(0,0,0,0); return d.getTime(); }
-  function monthStart(ts){ const d=new Date(ts); d.setDate(1); d.setHours(0,0,0,0); return d.getTime(); }
-
-  async function saveScore(sc){
-    if(!RTDB_ENABLED) return;
-    try{
-      const ref = db.ref('scores_v1').push();
-      await ref.set({nickname:nickname||'Guest',country,score:sc,ts:Date.now()});
-    }catch(e){ console.warn('점수 저장 실패',e); }
-  }
-
-  function refreshBoard(){
-    if(!RTDB_ENABLED){ tbody.innerHTML=''; return; }
-    const ref = db.ref('scores_v1').orderByChild('score').limitToLast(100);
-    ref.off();
-    ref.on('value',snap=>{
-      const rows=[];
-      snap.forEach(child=>{ rows.push(child.val()); });
-      // 정렬 (score desc)
-      rows.sort((a,b)=>b.score-a.score);
-
-      const now=Date.now();
-      const ws=weekStart(now), ms=monthStart(now);
-
-      const filtered = rows.filter(r=>{
-        if(countryFilter!=='ALL' && (r.country||'KR').toUpperCase()!==countryFilter) return false;
-        if(range==='week' && r.ts<ws) return false;
-        if(range==='month'&& r.ts<ms) return false;
-        return true;
-      }).slice(0,50);
-
-      tbody.innerHTML = filtered.map((r,i)=>`
-        <tr>
-          <td>${i+1}</td>
-          <td>${escapeHtml(r.nickname||'Guest')}</td>
-          <td>${(r.country||'KR').toUpperCase()}</td>
-          <td>${r.score||0}</td>
-        </tr>
-      `).join('');
-    });
-  }
-
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-
-  /***********************
-   * 5) 부트스트랩
-   ***********************/
-  (async function boot(){
-    await detectCountry();
-    connectFirebase();
-    refreshBoard();
-    openStartOverlay(); // 첫 진입 팝업
-    emptyGrid(); draw(); // 빈 보드 표시
-  })();
-  </script>
+/* ===== 유틸 ===== */
+function setStatus(id, mode, text){
+  const el=document.getElementById(id); if(!el) return;
+  el.className='status ' + (mode==='ok'?'ok':'warn');
+  el.textContent=text; el.style.display='flex';
+}
+</script>
 </body>
 </html>
