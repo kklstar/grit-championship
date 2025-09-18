@@ -49,7 +49,7 @@
   }
   .hud strong{ color:var(--fg); }
 
-  /* ── 우측: 보드/리스트 영역(현재는 프레임만) ───────── */
+  /* ── 우측: 보드/리스트 영역(프레임 유지) ─────────── */
   .board{
     background:var(--panel); border:1px solid var(--line);
     border-radius:14px; padding:14px;
@@ -80,17 +80,16 @@
   }
   .note{ font-size:12px; color:var(--muted); }
 
-  /* ── 시작/재시작 오버레이 ───────────────────────── */
+  /* ── 시작/게임오버 오버레이 ─────────────────────── */
   .overlay{
     position:absolute; inset:0; background:rgba(0,0,0,.45);
     display:flex; align-items:center; justify-content:center;
     z-index:10; border-radius:12px;
   }
-  /* 확실한 숨김 보장 */
   .overlay[hidden], .overlay.hide{ display:none !important; pointer-events:none !important; }
 
   .start-box{
-    width:min(88%,280px); background:rgba(15,22,48,.95);
+    width:min(88%,300px); background:rgba(15,22,48,.95);
     border:1px solid var(--line); border-radius:16px;
     padding:18px; text-align:center; backdrop-filter: blur(4px);
   }
@@ -100,13 +99,16 @@
     border-radius:10px; padding:10px 12px; outline:none; margin-bottom:10px;
   }
   .start-box input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px rgba(73,178,255,.18); }
+  .start-box .score-line{
+    margin:4px 0 10px; font-size:14px; color:var(--gold); display:none;
+  }
   .start-box .sub{ font-size:12px; color:var(--muted); margin-top:8px; }
 
   /* ── 모바일 조작키 ─────────────────────────────── */
   .mobile-keys{
     display:none; margin-top:10px; gap:8px; flex-wrap:wrap; justify-content:center;
   }
-  .mobile-keys.show{ display:flex; } /* JS로 강제 노출 */
+  .mobile-keys.show{ display:flex; }
   @media (max-width: 768px){
     .mobile-keys{ display:flex; }
   }
@@ -127,13 +129,16 @@
     <div class="canvas-box">
       <canvas id="game" width="300" height="600" aria-label="Tetris board"></canvas>
 
-      <!-- 시작/재시작 오버레이 -->
+      <!-- 시작/게임오버 오버레이 -->
       <div id="overlay" class="overlay">
         <div class="start-box">
           <h3 id="ov-title">시작 / Restart</h3>
           <p class="sub">닉네임을 입력하고 시작하세요.</p>
+
           <input id="nickname" type="text" placeholder="닉네임 / Nickname (2자 이상)" maxlength="16" />
-          <button id="btnStart" type="button" class="btn" disabled>시작</button>
+          <div id="ov-score" class="score-line">이번 점수 : <strong id="ov-score-val">0</strong></div>
+
+          <button id="btnStart" type="button" class="btn" disabled>게임 시작</button>
           <div class="sub">조작키: ← → 이동 · ↑ 회전 · ↓ 소프트드롭, Space 하드드롭</div>
         </div>
       </div>
@@ -176,8 +181,7 @@
 
 <script>
 /* =========================================================
-   TETRIS — Classic Scoring + Mobile Keys + Overlay Start
-   (오버레이 확실히 숨김 / 모바일 키 강제 노출)
+   TETRIS — Classic Scoring + Mobile Keys + Start/Over Overlay
    ========================================================= */
 
 (() => {
@@ -195,6 +199,8 @@
   const ovTitle = document.getElementById('ov-title');
   const nickname = document.getElementById('nickname');
   const btnStart = document.getElementById('btnStart');
+  const ovScoreWrap = document.getElementById('ov-score');
+  const ovScoreVal = document.getElementById('ov-score-val');
 
   // Mobile keys container
   const mKeys = document.getElementById('mKeys');
@@ -352,26 +358,37 @@
 
   function gameOver(){
     running = false;
-    showOverlay('GAME OVER — 다시 시작', true);
+    showOverlay('over');         // GAME OVER 오버레이
   }
 
-  /* ── Overlay 제어(확실히 숨김) ─────────────────── */
-  function showOverlay(title="시작 / Restart", isRestart=false){
-    ovTitle.textContent = title;
+  /* ── Overlay 제어 ─────────────────────────────── */
+  function showOverlay(mode='start'){
+    if (mode === 'start'){
+      ovTitle.textContent = '시작 / Restart';
+      ovScoreWrap.style.display = 'none';
+      btnStart.textContent = '게임 시작';
+      btnStart.disabled = !(nickname.value.trim().length >= 2);
+    }else{
+      ovTitle.textContent = 'GAME OVER';
+      ovScoreVal.textContent = score.toLocaleString();
+      ovScoreWrap.style.display = 'block';
+      btnStart.textContent = '게임 시작';
+      btnStart.disabled = !(nickname.value.trim().length >= 2);
+    }
     overlay.classList.remove('hide');
     overlay.hidden = false;
-    nickname.value = isRestart ? nick : '';
-    btnStart.disabled = !(nickname.value.trim().length >= 2);
+    overlay.style.display = 'flex';
+    overlay.style.pointerEvents = 'auto';
     nickname.focus();
   }
   function hideOverlay(){
     overlay.hidden = true;
     overlay.classList.add('hide');
-    overlay.style.display = 'none';            /* 방어적: 완전 숨김 */
-    overlay.style.pointerEvents = 'none';      /* 클릭 차단 */
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
   }
 
-  /* ── Controls ───────────────────────────────────── */
+  /* ── Controls ─────────────────────────────────── */
   function keyHandler(e){
     if (!running) return;
     if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key)) e.preventDefault();
@@ -386,11 +403,10 @@
   }
   window.addEventListener('keydown', keyHandler);
 
-  // 모바일 키: 터치 디바이스면 항상 보이도록
+  // 모바일 키: 터치 디바이스면 항상 보임
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
     mKeys.classList.add('show');
   }
-
   document.querySelectorAll('.mkey').forEach(b=>{
     const k = b.dataset.key;
     const fire = ()=>{
@@ -406,13 +422,15 @@
     b.addEventListener('click', fire);
   });
 
-  // ── Overlay events ────────────────────────────────
+  // 오버레이 입력/시작
   nickname.addEventListener('input', ()=>{ btnStart.disabled = !(nickname.value.trim().length >= 2); });
 
   btnStart.addEventListener('click', ()=>{
-    nick = nickname.value.trim();
-    if (nick.length < 2) return;
-    hideOverlay();                     // 오버레이 확실히 숨김
+    const n = nickname.value.trim();
+    if (n.length < 2) return;
+    nick = n;
+    hideOverlay();
+    // 새 판 시작
     board = createBoard();
     score = 0; lines = 0; level = 0;
     updateHUD();
@@ -423,10 +441,10 @@
     requestAnimationFrame(tick);
   });
 
-  // 초기 상태: 오버레이 노출
+  // 초기 상태: 시작 오버레이
   board = createBoard();
   updateHUD();
-  showOverlay('시작 / Restart', false);
+  showOverlay('start');
 })();
 </script>
 </body>
