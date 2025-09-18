@@ -2,515 +2,532 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>천하제일 근성 대회 (World Grit Championship)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>천하제일 근성 대회 — Tetris</title>
 <style>
   :root{
-    --bg:#0b1020; --panel:#0f1630; --fg:#e7f0ff; --muted:#99a8c7; --line:#1b2548;
-    --accent:#49b2ff; --danger:#ff5666; --ok:#22cc71; --gold:#ffd86b;
-    --btn:#0e1430; --btnLine:rgba(255,255,255,.08);
-    --green:#15c57a;
+    /* ── 고정 팔레트 (변경 금지) ───────────────────────── */
+    --bg:#0b1020;         /* 전체 배경(짙은 네이비) */
+    --panel:#0f1630;      /* 카드 / 캔버스 배경 */
+    --line:#1b2548;       /* 경계선/디바이더 */
+    --muted:#99a8c7;      /* 묵은 텍스트 */
+    --fg:#e7f0ff;         /* 본문 텍스트(옅은 흰) */
+    --accent:#49b2ff;     /* 포커스/버튼 */
+    --good:#2ecc71;       /* 강조(성공) */
+    --warn:#ffcc66;
+    --danger:#ff5666;
+    --gold:#ffd86b;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
-  header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  header h1{font-size:18px;margin:0;letter-spacing:.2px}
-  .flag{display:inline-block;border:1px solid rgba(255,255,255,.15);padding:2px 8px;border-radius:999px;font-size:12px}
-  main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;align-items:start}
-  @media (max-width:1080px){ main{grid-template-columns: 1fr} }
-
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;position:relative}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  input[type=text]{
-    background:#0e1430;color:var(--fg);border:1px solid #1e2a55;padding:10px;border-radius:10px;outline:none;
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
   }
-  button{
-    background:linear-gradient(180deg,#2089ff,#3394ff); color:#fff;border:0;padding:10px 12px;border-radius:10px;
-    cursor:pointer; font-weight:700;
+  .wrap{
+    max-width:1200px; margin:0 auto; padding:16px;
+    display:grid; grid-template-columns: 320px 1fr; gap:16px;
   }
-  .button_ghost{background:transparent;border:1px solid #23a77c;color:#23a77c}
-  canvas{background:#0a0f22;border:1px solid #223060;border-radius:12px;display:block;margin:auto;outline:none;}
-  .stat{display:flex;justify-content:space-between;margin:8px 0;font-size:14px}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:8px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
-  th{color:#cfe0ff}
-  .tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#0d1a3a;border:1px solid var(--btnLine);font-size:12px}
-  .ok{color:#00db83}
-  .warn{color:#ffd86b}
-  .bad{color:#ff6b7a}
-
-  /* ▶▶ 게임 시작/재시작 오버레이(팝업) */
-  .overlay {
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.35); border-radius:12px;
+  @media (max-width: 980px){
+    .wrap{grid-template-columns: 1fr;}
   }
-  .overlay .box {
-    width:90%;max-width:260px;background:#0f1630;border:1px solid #223060;border-radius:12px;padding:16px;text-align:center
+
+  /* ── 좌측: 게임 카드 ─────────────────────────────── */
+  .card{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:14px;
   }
-  .overlay h3{margin:0 0 8px 0}
-  .overlay .help{font-size:12px;color:#9fb0d6;margin-top:10px;line-height:1.4}
+  .canvas-box{ position:relative; }
+  canvas{
+    display:block; background:#0a1228; border-radius:12px;
+    border:1px solid var(--line); margin-bottom:10px;
+  }
+  .hud{
+    display:flex; gap:10px; justify-content:space-between; align-items:center;
+    font-size:13px; color:var(--muted);
+    border-top:1px dashed rgba(255,255,255,.12); padding-top:10px;
+  }
+  .hud strong{ color:var(--fg); }
 
-  /* 필터 버튼 */
-  .pill{padding:6px 10px;border:1px solid #213058;background:#0d1a3a;border-radius:999px;cursor:pointer;font-size:12px}
-  .pill.active{background:#1a2b63;color:#fff;border-color:#2a49a5}
-  .bar{padding:8px 10px;border:1px solid #1c2b57;background:#0f1a3d;border-radius:10px;font-size:13px}
-  .status{padding:8px 10px;border-radius:10px;background:#0f1a3d;border:1px solid #1c2b57;font-size:13px}
-  .status.ok{border-color:#1f6d4f}
-  .status.bad{border-color:#79334b}
+  /* ── 우측: 보드/리스트 영역(지금은 타이틀/테이블 프레임만 유지) ─ */
+  .board{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:14px;
+  }
+  .board .tabs{ display:flex; gap:8px; margin-bottom:12px; }
+  .chip{
+    font-size:12px; padding:6px 10px; border-radius:999px;
+    border:1px solid var(--line); color:var(--muted);
+    background:transparent; cursor:default;
+  }
+  .chip.on{ color:var(--fg); border-color:var(--good); box-shadow:0 0 0 1px rgba(46,204,113,.15) inset; }
 
-  footer{color:#8fa8e0;text-align:center;padding:18px 8px;font-size:13px;opacity:.85}
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ text-align:left; padding:8px; border-bottom:1px dashed rgba(255,255,255,.08); font-size:14px;}
+  th{ color:#cfe2ff; }
+  tbody tr:hover{ background-color:rgba(255,255,255,.03); }
+
+  /* ── 버튼 ───────────────────────────────────────── */
+  .btn{
+    background:linear-gradient(180deg,#1084ff,#0865ff);
+    color:#fff; border:none; border-radius:10px;
+    padding:10px 14px; cursor:pointer; font-weight:700;
+  }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-ghost{
+    background:transparent; border:1px solid var(--line); color:#cfe2ff;
+    border-radius:10px; padding:10px 14px; cursor:pointer;
+  }
+  .note{ font-size:12px; color:var(--muted); }
+
+  /* ── 시작/재시작 오버레이 ───────────────────────── */
+  .overlay{
+    position:absolute; inset:0; background:rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center;
+    z-index:10; border-radius:12px;
+  }
+  .start-box{
+    width:min(88%,280px); background:rgba(15,22,48,.95);
+    border:1px solid var(--line); border-radius:16px;
+    padding:18px; text-align:center; backdrop-filter: blur(4px);
+  }
+  .start-box h3{ margin:6px 0 12px; }
+  .start-box input{
+    width:100%; background:#04132f; color:var(--fg); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; outline:none; margin-bottom:10px;
+  }
+  .start-box input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px rgba(73,178,255,.18); }
+  .start-box .sub{ font-size:12px; color:var(--muted); margin-top:8px; }
+
+  /* ── 모바일 조작키 ─────────────────────────────── */
+  .mobile-keys{
+    display:none; margin-top:10px; gap:8px; flex-wrap:wrap; justify-content:center;
+  }
+  .mkey{
+    flex:1 1 calc(25% - 8px);
+    min-width:62px; text-align:center;
+    background:#0c234a; border:1px solid var(--line); color:#cfe2ff;
+    border-radius:12px; padding:10px 0; user-select:none;
+  }
+  .mkey:active{ transform:translateY(1px); background:#0b2a5f; }
+
+  @media (max-width: 768px){
+    .mobile-keys{ display:flex; }
+  }
+
+  /* 툴팁/상태 ───────────────────────────────────── */
+  .status{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 12px; border-radius:999px; font-size:12px;
+    border:1px solid var(--line);
+  }
+  .status.ok{ color:#d4ffe9; border-color:#244b35; background:#12251b; }
+  .status.bad{ color:#ffe1e1; border-color:#4b2424; background:#251212; }
 </style>
 </head>
 <body>
-<header>
-  <h1>천하제일 근성 대회</h1>
-  <span class="flag" id="countryTag">KR</span>
-  <div class="status" id="firebaseBadge">Firebase 연결 확인 중…</div>
-</header>
 
-<main>
-  <!-- 왼쪽: 게임 -->
-  <section class="card" style="padding:12px">
-    <div style="display:flex;align-items:center;gap:8px;margin:8px">
-      <span class="tag">조작: ← → 이동, ↑ 회전, ↓ 소프트드롭, Space 하드드롭</span>
-    </div>
-    <div style="position:relative">
-      <canvas id="game" width="320" height="560" tabindex="0" aria-label="Tetris"></canvas>
+<div class="wrap">
+  <!-- left: game -->
+  <section class="card">
+    <div class="canvas-box">
+      <canvas id="game" width="300" height="600" aria-label="Tetris board"></canvas>
 
-      <!-- ▶ 시작/재시작 팝업 (게임 캔버스 위) -->
-      <div class="overlay" id="startOverlay" role="dialog" aria-modal="true">
-        <div class="box">
-          <h3>시작 / Restart</h3>
-          <p style="margin:4px 0 10px;color:#9fb0d6">닉네임을 입력하고 시작하세요.</p>
-          <input type="text" id="nickInput" placeholder="닉네임 (2자 이상)" maxlength="16" style="width:100%;margin-bottom:10px" />
-          <button id="startBtn" style="width:100%">시작</button>
-          <div class="help">* 게임이 끝나면 여기로 다시 돌아옵니다.</div>
+      <!-- 시작/재시작 오버레이 -->
+      <div id="overlay" class="overlay" hidden>
+        <div class="start-box">
+          <h3 id="ov-title">시작 / Restart</h3>
+          <p class="sub">닉네임을 입력하고 시작하세요.</p>
+          <input id="nickname" type="text" placeholder="닉네임 / Nickname (2자 이상)" maxlength="16" />
+          <button id="btnStart" class="btn" disabled>시작</button>
+          <div class="sub">조작키: ← → 이동 · ↑ 회전 · ↓ 소프트드롭, Space 하드드롭</div>
         </div>
       </div>
     </div>
 
-    <div class="stat"><span>점수 / Score</span><b id="score">0</b></div>
-    <div class="stat"><span>라인 / Lines</span><b id="lines">0</b></div>
-    <div class="stat"><span>레벨 / Level</span><b id="level">1</b></div>
+    <div class="mobile-keys" aria-hidden="false">
+      <div class="mkey" data-key="ArrowLeft">⬅️</div>
+      <div class="mkey" data-key="ArrowUp">⬆️</div>
+      <div class="mkey" data-key="ArrowRight">➡️</div>
+      <div class="mkey" data-key="ArrowDown">⬇️</div>
+      <div class="mkey" data-key="Space">DROP</div>
+    </div>
 
-    <div id="note" class="bar" style="margin-top:8px">
-      국가 표시는 Cloudflare Worker 기반입니다. 운영 시 서버(워커)에서 IP→국가로 바뀝니다.
+    <div class="hud">
+      <div>점수 <strong id="score">0</strong></div>
+      <div>라인 <strong id="lines">0</strong></div>
+      <div>레벨 <strong id="level">1</strong></div>
     </div>
   </section>
 
-  <!-- 오른쪽: 리더보드 -->
-  <section class="card">
-    <div class="row" style="justify-content:space-between;margin-bottom:8px">
-      <div class="row">
-        <button class="pill active" data-period="ALL">ALL</button>
-        <button class="pill" data-period="WEEK">This Week</button>
-        <button class="pill" data-period="MONTH">This Month</button>
-      </div>
-      <div class="row">
-        <button class="pill active" data-country="ALL">ALL</button>
-        <button class="pill" data-country="KR">KR</button>
-      </div>
+  <!-- right: list/board frame (향후 랭킹 연동 자리 유지) -->
+  <section class="board">
+    <div class="tabs">
+      <span class="chip on">실시간 업데이트 (Firebase RTDB)</span>
+      <span class="chip">점수 저장 완료 / Saved</span>
+      <span class="chip">ALL</span>
+      <span class="chip">This Week</span>
+      <span class="chip">This Month</span>
+      <span class="chip">KR</span>
     </div>
-    <div id="statusBar" class="status ok">실시간 업데이트 (Firebase RTDB)</div>
-    <div id="saveBar" class="status" style="margin-top:6px;display:none"></div>
 
-    <div style="overflow:auto;border:1px solid #1c2b57;border-radius:10px;margin-top:10px">
-      <table id="board">
-        <thead>
-          <tr><th style="width:56px">#</th><th>닉네임 / Nickname</th><th style="width:80px">국가</th><th style="width:100px">점수</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>닉네임 / Nickname</th><th>국가 / Country</th><th>점수 / Score</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="4" class="note">랭킹 연동 전 — 게임 정상 동작 확인용 레이아웃</td></tr></tbody>
+    </table>
   </section>
-</main>
-
-<footer>© demo — Firebase RTDB + 클라이언트 테트리스 (운영 전 서버 검증/보안 규칙 강화 필수)</footer>
-
-<!-- Firebase compat SDK (app/database) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</div>
 
 <script>
-/* ─────────────────────────────────────────────────────────────────────────────
-   1) 여기를 네 값으로 바꿔주세요
-────────────────────────────────────────────────────────────────────────────── */
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MSG_SENDER",
-  appId: "YOUR_APP_ID"
-};
-// Cloudflare Worker 주소(마지막에 슬래시 없이). 예: https://tetris.yourname.workers.dev
-const WORKER_URL = "https://YOUR-WORKER-SUBDOMAIN.workers.dev";
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* =========================================================
+   TETRIS — Classic Scoring + Mobile Keys + Overlay Start
+   ========================================================= */
 
-// Firebase init
-let app, db;
-try {
-  app = firebase.initializeApp(FIREBASE_CONFIG);
-  db = firebase.database();
-  setStatus('firebaseBadge', 'ok', 'Firebase 연결 OK / Connected — 점수 업로드 가능');
-} catch (e) {
-  setStatus('firebaseBadge', 'bad', 'Firebase 미설정: 점수 저장 비활성화');
-  console.warn(e);
-}
+(() => {
+  const COLS = 10, ROWS = 20, BLOCK = 30; // canvas 300x600
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-// 국가(워커) 확인 + CN 차단
-let COUNTRY = 'KR';
-(async () => {
-  try {
-    if (!WORKER_URL) throw new Error('worker url empty');
-    const r = await fetch(WORKER_URL + '/country', {credentials:'omit',cache:'no-cache'});
-    if (r.status === 403) {
-      // 차단됨
-      COUNTRY = 'XX';
-      blockedOverlay('접속이 제한되었습니다.');
-      setStatus('note', 'bad', '접속이 제한되었습니다. (CN 차단)');
+  // HUD
+  const elScore = document.getElementById('score');
+  const elLines = document.getElementById('lines');
+  const elLevel = document.getElementById('level');
+
+  // Overlay
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ov-title');
+  const nickname = document.getElementById('nickname');
+  const btnStart = document.getElementById('btnStart');
+
+  // Classic scoring table (per line clear), multiplied by (level+1)
+  // index = cleared lines (0..4)
+  const LINE_TABLE = [0, 40, 100, 300, 1200];
+
+  // Board (0=empty, >0 = color index)
+  let board;
+
+  // Game state
+  let score = 0, lines = 0, level = 0;  // 화면엔 level+1 로 노출
+  let dropCounter = 0, dropInterval = 1000; // ms
+  let lastTime = 0;
+  let running = false;
+  let nick = '';
+
+  // Piece definitions
+  const TETROMINOES = {
+    'T': [[0,1,0],[1,1,1],[0,0,0]],
+    'O': [[1,1],[1,1]],
+    'L': [[1,0,0],[1,1,1],[0,0,0]],
+    'J': [[0,0,1],[1,1,1],[0,0,0]],
+    'Z': [[1,1,0],[0,1,1],[0,0,0]],
+    'S': [[0,1,1],[1,1,0],[0,0,0]],
+    'I': [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  };
+  const TYPES = Object.keys(TETROMINOES);
+
+  // Colors (팔레트 유지)
+  const COLORS = {
+    0:'#0a1228',
+    1:'#49b2ff', // I
+    2:'#ffd86b', // O
+    3:'#2ecc71', // S
+    4:'#ff5666', // Z
+    5:'#ff8ad6', // T
+    6:'#8ad1ff', // J
+    7:'#ffa552', // L
+  };
+
+  // Current piece
+  let piece = null;
+
+  function createBoard(){
+    return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  }
+
+  function resetGame(){
+    board = createBoard();
+    score = 0; lines = 0; level = 0;
+    updateHUD();
+    spawn(); // 첫 스폰이 충돌이면 그 즉시 Game Over 처리됨
+    dropCounter = 0;
+    lastTime = 0;
+    running = true;
+  }
+
+  function spawn(){
+    const type = TYPES[Math.floor(Math.random()*TYPES.length)];
+    const matrix = TETROMINOES[type].map(r => r.slice());
+    piece = {
+      x: ((COLS/2)|0) - ((matrix[0].length/2)|0),
+      y: 0,
+      matrix,
+      color: typeToColor(type)
+    };
+    // 스폰 즉시 충돌 체크 -> Game Over
+    if (collide(board, piece)){
+      gameOver();
       return;
     }
-    const j = await r.json();
-    COUNTRY = (j.country || 'KR').toUpperCase();
-    document.getElementById('countryTag').textContent = COUNTRY;
-  } catch {
-    COUNTRY = 'KR';
   }
-})();
 
-// 유틸
-function qs(sel){return document.querySelector(sel)}
-function setStatus(id, kind, text){
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.remove('ok','bad');
-  if (kind) el.classList.add(kind);
-  el.textContent = text;
-}
-
-// 중국 차단 안내(워커 403) — 화면 좌측 하단 안내
-function blockedOverlay(msg){
-  const note = document.getElementById('note');
-  note.textContent = msg || '접속이 제한되었습니다.';
-  note.style.borderColor = '#79334b';
-  note.style.color = '#ff7488';
-  // 시작 버튼 비활성
-  qs('#startBtn').disabled = true;
-  qs('#nickInput').disabled = true;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   테트리스 간단 구현 (I 조각 가중치 ↑)
-────────────────────────────────────────────────────────────────────────────── */
-const W=10,H=18,S=32; // 보드 폭/높이/블록 크기
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-canvas.width = W*S; canvas.height = H*S;
-
-const COLORS = {
-  0:'#101735', 1:'#35c9ff', 2:'#22e38a', 3:'#ffd257', 4:'#ff6f91', 5:'#9b78ff', 6:'#5ee6e6', 7:'#ff934d'
-};
-const PIECES = {
-  // 7종 + I 조각 가중치, 회전 4가지
-  I: [
-    [[1,1,1,1]],
-    [[1],[1],[1],[1]],
-    [[1,1,1,1]],
-    [[1],[1],[1],[1]]
-  ],
-  O: [
-    [[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]]
-  ],
-  T: [
-    [[0,1,0],[1,1,1]], [[1,0],[1,1],[1,0]], [[1,1,1],[0,1,0]], [[0,1],[1,1],[0,1]]
-  ],
-  S: [
-    [[0,1,1],[1,1,0]], [[1,0],[1,1],[0,1]], [[0,1,1],[1,1,0]], [[1,0],[1,1],[0,1]]
-  ],
-  Z: [
-    [[1,1,0],[0,1,1]], [[0,1],[1,1],[1,0]], [[1,1,0],[0,1,1]], [[0,1],[1,1],[1,0]]
-  ],
-  J: [
-    [[1,0,0],[1,1,1]], [[1,1],[1,0],[1,0]], [[1,1,1],[0,0,1]], [[0,1],[0,1],[1,1]]
-  ],
-  L: [
-    [[0,0,1],[1,1,1]], [[1,0],[1,0],[1,1]], [[1,1,1],[1,0,0]], [[1,1],[0,1],[0,1]]
-  ]
-};
-// I 조각 확률 가중(막대기 더 자주)
-const BAG = ['I','I','T','O','S','Z','J','L','T','L','J','S','Z','O'];
-
-function newMatrix(w,h){return Array.from({length:h},()=>Array(w).fill(0))}
-let board = newMatrix(W,H);
-
-function drawCell(x,y,c){
-  ctx.fillStyle=c; ctx.fillRect(x*S,y*S,S-1,S-1);
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const v = board[y][x]; drawCell(x,y, COLORS[v] || COLORS[0]);
+  function typeToColor(t){
+    // t: I,O,S,Z,T,J,L -> 1..7
+    const map = { I:1, O:2, S:3, Z:4, T:5, J:6, L:7 };
+    return map[t];
   }
-  if(cur){
-    const shape = PIECES[cur.name][cur.r];
-    for(let y=0;y<shape.length;y++)for(let x=0;x<shape[0].length;x++){
-      if(shape[y][x]) drawCell(cur.x+x, cur.y+y, COLORS[cur.color]);
+
+  function collide(board, p){
+    const m = p.matrix;
+    for (let y=0; y<m.length; y++){
+      for (let x=0; x<m[y].length; x++){
+        if (m[y][x]){
+          const ny = p.y + y;
+          const nx = p.x + x;
+          if (ny < 0 || ny >= ROWS || nx < 0 || nx >= COLS || board[ny][nx]){
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function merge(board, p){
+    const m = p.matrix;
+    for (let y=0; y<m.length; y++){
+      for (let x=0; x<m[y].length; x++){
+        if (m[y][x]){
+          board[p.y+y][p.x+x] = p.color;
+        }
+      }
     }
   }
-}
 
-function collide(nx,ny,nr){
-  const shape = PIECES[cur.name][nr];
-  for(let y=0;y<shape.length;y++){
-    for(let x=0;x<shape[0].length;x++){
-      if(!shape[y][x])continue;
-      const bx = nx+x, by = ny+y;
-      if(bx<0 || bx>=W || by>=H) return true;
-      if(by>=0 && board[by][bx]) return true;
+  function rotate(matrix, dir=1){
+    // transpose
+    for (let y=0; y<matrix.length; y++){
+      for (let x=0; x<y; x++){
+        [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+      }
+    }
+    // reverse rows
+    if (dir > 0){
+      matrix.forEach(row => row.reverse());
+    }else{
+      matrix.reverse();
+    }
+    return matrix;
+  }
+
+  function tryRotate(dir=1){
+    const clone = piece.matrix.map(r => r.slice());
+    rotate(clone, dir);
+    const oldX = piece.x;
+    let offset = 0;
+    while (collide(board, { ...piece, matrix: clone, x: piece.x + offset })){
+      offset = offset ? -(offset + (offset>0?1:-1)) : 1;
+      if (Math.abs(offset) > clone[0].length) return; // 실패
+    }
+    piece.matrix = clone;
+    piece.x += offset;
+  }
+
+  function softDrop(){
+    piece.y++;
+    if (collide(board, piece)){
+      piece.y--;
+      lockPiece();
+      return false;
+    }else{
+      // soft drop 가산
+      score += 1;
+      updateHUD();
+      return true;
     }
   }
-  return false;
-}
 
-function merge(){
-  const shape = PIECES[cur.name][cur.r];
-  for(let y=0;y<shape.length;y++)for(let x=0;x<shape[0].length;x++){
-    if(shape[y][x]){ if(cur.y+y>=0) board[cur.y+y][cur.x+x]=cur.color; }
+  function hardDrop(){
+    let dropped = 0;
+    while (!collide(board, piece)){
+      piece.y++;
+      dropped++;
+    }
+    piece.y--; dropped--;
+    // hard drop 가산(칸당 +2)
+    score += Math.max(0, dropped*2);
+    lockPiece();
   }
-}
 
-function clearLines(){
-  let cleared=0;
-  for(let y=H-1;y>=0;y--){
-    if(board[y].every(v=>v)){
-      board.splice(y,1);
-      board.unshift(Array(W).fill(0));
-      cleared++; y++;
+  function move(dir){
+    piece.x += dir;
+    if (collide(board, piece)){
+      piece.x -= dir;
     }
   }
-  if(cleared){
-    lines += cleared;
-    score += [0,100,300,500,800][cleared] * Math.max(1,Math.floor(level/2));
-    level = 1 + Math.floor(lines/10);
+
+  function lockPiece(){
+    merge(board, piece);
+    // 블록 고정 보너스
+    score += (level * 10);
+
+    const cleared = sweep();
+    if (cleared > 0){
+      // 라인 점수: LINE_TABLE[cleared] * (level+1)
+      score += LINE_TABLE[cleared] * (level+1);
+    }
+
+    // 레벨업 규칙: 10라인마다 +1
+    if (Math.floor(lines/10) > level){
+      level = Math.floor(lines/10);
+      setSpeedByLevel();
+    }
+
     updateHUD();
+    spawn(); // 다음 조각
   }
-}
 
-function spawn(){
-  const name = BAG[(Math.random()*BAG.length)|0];
-  cur = {
-    name, r:0, x: 3, y: -2,
-    color: 1 + (['I','T','O','S','Z','J','L'].indexOf(name))
-  };
-  if(collide(cur.x,cur.y,cur.r)){ gameOver(); }
-}
+  function sweep(){
+    let cleared = 0;
+    outer: for (let y=ROWS-1; y>=0; y--){
+      for (let x=0; x<COLS; x++){
+        if (!board[y][x]) continue outer;
+      }
+      // 가득 참 -> 삭제
+      const row = board.splice(y,1)[0].fill(0);
+      board.unshift(row);
+      cleared++; y++; // 같은 y 재검사
+    }
+    lines += cleared;
+    return cleared;
+  }
 
-let cur=null, dropAcc=0, dropDelay=700, running=false, wrote=false;
-let score=0, lines=0, level=1, nickname=null;
+  function setSpeedByLevel(){
+    // 클래식 느낌 (대략) — 레벨 올라갈수록 빨라짐
+    // 원하면 세밀하게 조정 가능
+    const table = [1000, 900, 800, 700, 600, 500, 450, 400, 350, 300, 260, 220, 200, 180, 160, 140, 120, 100, 90, 80];
+    dropInterval = table[Math.min(level, table.length-1)];
+  }
 
-function updateHUD(){
-  document.getElementById('score').textContent=score;
-  document.getElementById('lines').textContent=lines;
-  document.getElementById('level').textContent=level;
-}
+  function updateHUD(){
+    elScore.textContent = score.toLocaleString();
+    elLines.textContent = lines;
+    elLevel.textContent = (level+1);
+  }
 
-function step(t){
-  if(!running) return;
-  const speed = Math.max(120, dropDelay - level*35);
-  if(!last) last=t;
-  const dt = t-last; last=t;
-  dropAcc += dt;
-  if(dropAcc > speed){
-    dropAcc=0;
-    if(!collide(cur.x,cur.y+1,cur.r)){ cur.y++; }
-    else{
-      merge(); clearLines(); spawn();
+  function drawBlock(x,y,colorIndex){
+    ctx.fillStyle = COLORS[colorIndex];
+    ctx.fillRect(x*BLOCK, y*BLOCK, BLOCK, BLOCK);
+    // 살짝 입체감
+    ctx.strokeStyle = 'rgba(0,0,0,.25)';
+    ctx.strokeRect(x*BLOCK+.5, y*BLOCK+.5, BLOCK-1, BLOCK-1);
+  }
+
+  function draw(){
+    // 보드
+    for (let y=0; y<ROWS; y++){
+      for (let x=0; x<COLS; x++){
+        drawBlock(x,y, board[y][x]);
+      }
+    }
+    // current piece
+    if (piece){
+      const m = piece.matrix;
+      for (let y=0; y<m.length; y++){
+        for (let x=0; x<m[y].length; x++){
+          if (m[y][x]){
+            drawBlock(piece.x+x, piece.y+y, piece.color);
+          }
+        }
+      }
     }
   }
-  draw();
-  requestAnimationFrame(step);
-}
 
-function move(dx){
-  if(!running) return;
-  if(!collide(cur.x+dx,cur.y,cur.r)) cur.x+=dx;
-  draw();
-}
-function rotate(){
-  if(!running) return;
-  const nr=(cur.r+1)&3;
-  if(!collide(cur.x,cur.y,nr)) cur.r=nr;
-  else if(!collide(cur.x+1,cur.y,nr)) cur.x++;
-  else if(!collide(cur.x-1,cur.y,nr)) cur.x--;
-  draw();
-}
-function soft(){ if(running && !collide(cur.x,cur.y+1,cur.r)){ cur.y++; draw(); } }
-function hard(){
-  if(!running) return;
-  while(!collide(cur.x,cur.y+1,cur.r)) cur.y++;
-  merge(); clearLines(); spawn(); draw();
-}
-
-let last=0;
-document.addEventListener('keydown',e=>{
-  if(!running) return;
-  switch(e.key){
-    case 'ArrowLeft': move(-1); break;
-    case 'ArrowRight': move(1); break;
-    case 'ArrowUp': rotate(); break;
-    case 'ArrowDown': soft(); break;
-    case ' ': hard(); e.preventDefault(); break;
+  function tick(time=0){
+    if (!running) return; // stop
+    const delta = time - lastTime;
+    lastTime = time;
+    dropCounter += delta;
+    if (dropCounter > dropInterval){
+      dropCounter = 0;
+      if (!softDrop()){
+        // 이미 lockPiece() 내에서 spawn
+      }
+    }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    draw();
+    requestAnimationFrame(tick);
   }
-});
 
-function resetGame(){
-  board = newMatrix(W,H);
-  score=0; lines=0; level=1; updateHUD();
-  cur=null; last=0; dropAcc=0; wrote=false;
-  spawn(); draw();
-}
-
-function startGame(){
-  nickname = (qs('#nickInput').value||'').trim();
-  if(nickname.length<2){
-    qs('#nickInput').focus();
-    return;
+  function gameOver(){
+    running = false;
+    showOverlay('GAME OVER — 다시 시작', true);
   }
-  // 오버레이 닫고 포커스 캔버스
-  qs('#startOverlay').style.display='none';
-  canvas.focus();
-  resetGame();
-  running=true;
-  requestAnimationFrame(step);
-}
 
-function gameOver(){
-  running=false;
-  drawGameOver();
-  // 점수 저장 (하루 1회/닉네임) — RTDB 규칙: scores/{date}/{nick} 에 덮어쓰기 금지
-  if(!wrote) saveScoreOnce().finally(()=>{ wrote=true; });
-  // 오버레이 다시 띄움 (재시작)
-  setTimeout(()=>{ qs('#startOverlay').style.display='flex'; }, 400);
-}
-
-function drawGameOver(){
-  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#fff'; ctx.font='bold 26px system-ui';
-  ctx.textAlign='center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 8);
-  ctx.font='14px system-ui';
-  ctx.fillText('다시 하려면 닉네임 입력 후 [시작]을 누르세요', canvas.width/2, canvas.height/2 + 18);
-}
-
-// 시작 버튼
-qs('#startBtn').addEventListener('click', startGame);
-qs('#nickInput').addEventListener('keydown',e=>{ if(e.key==='Enter') startGame(); });
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   2) 점수 저장 (scores/날짜/닉네임) — 규칙: 이미 있으면 덮어쓰기 거부
-────────────────────────────────────────────────────────────────────────────── */
-function todayStr(){
-  const d=new Date(); const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,'0');
-  const dd=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${dd}`;
-}
-async function saveScoreOnce(){
-  if(!db){ setStatus('saveBar','bad','Firebase 미설정: 점수 저장 실패'); qs('#saveBar').style.display='block'; return; }
-  const key = `scores/${todayStr()}/${nickname}`;
-  const payload = { score, country: COUNTRY, ts: Date.now() };
-  try{
-    // set — 규칙상 newData.exists()==false 일 때만 성공
-    await db.ref(key).set(payload);
-    setStatus('saveBar','ok','점수 저장 완료 / Saved'); qs('#saveBar').style.display='block';
-  }catch(err){
-    // 이미 저장된 경우 등: PERMISSION_DENIED
-    setStatus('saveBar','bad','이미 오늘 기록이 있습니다. (중복 저장 금지)'); qs('#saveBar').style.display='block';
+  function showOverlay(title="시작 / Restart", isRestart=false){
+    ovTitle.textContent = title;
+    overlay.hidden = false;
+    nickname.value = isRestart ? nick : '';
+    btnStart.disabled = !(nickname.value.trim().length >= 2);
+    nickname.focus();
   }
-}
+  function hideOverlay(){
+    overlay.hidden = true;
+  }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   3) 리더보드 로딩 (ALL/WEEK/MONTH) + 국가 필터
-   - 기본: 실시간은 '오늘' path만 onValue로 구독 (표시용)
-   - 주/월: 최근 7/31일 fetch 후 병합 → 점수 desc 정렬
-────────────────────────────────────────────────────────────────────────────── */
-const pillsPeriod = [...document.querySelectorAll('.pill[data-period]')];
-const pillsCountry = [...document.querySelectorAll('.pill[data-country]')];
-let CURRENT_PERIOD='ALL', CURRENT_COUNTRY='ALL';
+  // ── Controls ──────────────────────────────────────
+  function keyHandler(e){
+    if (!running) return;
+    if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key)){
+      e.preventDefault();
+    }
+    switch(e.key){
+      case 'ArrowLeft': move(-1); break;
+      case 'ArrowRight': move(1); break;
+      case 'ArrowDown': softDrop(); break;
+      case 'ArrowUp': tryRotate(1); break;
+      case ' ': case 'Spacebar': hardDrop(); break;
+    }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    draw();
+  }
+  window.addEventListener('keydown', keyHandler);
 
-pillsPeriod.forEach(b=>b.addEventListener('click',()=>{
-  pillsPeriod.forEach(x=>x.classList.remove('active')); b.classList.add('active');
-  CURRENT_PERIOD=b.dataset.period; loadBoard();
-}));
-pillsCountry.forEach(b=>b.addEventListener('click',()=>{
-  pillsCountry.forEach(x=>x.classList.remove('active')); b.classList.add('active');
-  CURRENT_COUNTRY=b.dataset.country; loadBoard();
-}));
-
-// 실시간(오늘) 구독 핸들
-let todayUnsub=null;
-function subscribeToday(){
-  if(todayUnsub) todayUnsub();
-  if(!db) return;
-  const ref = db.ref(`scores/${todayStr()}`);
-  const cb = ref.on('value', snap => {
-    if(CURRENT_PERIOD==='ALL'){ renderRows(aggregate([snap])); setStatus('statusBar','ok','실시간 업데이트 (Firebase RTDB)'); }
+  // 모바일 키
+  document.querySelectorAll('.mkey').forEach(b=>{
+    const k = b.dataset.key;
+    const fire = ()=> {
+      // overlay 열려있으면 동작 X
+      if (!running) return;
+      if (k==='ArrowLeft') move(-1);
+      else if (k==='ArrowRight') move(1);
+      else if (k==='ArrowDown') softDrop();
+      else if (k==='ArrowUp') tryRotate(1);
+      else if (k==='Space') hardDrop();
+      ctx.clearRect(0,0,canvas.width,canvas.height); draw();
+    };
+    b.addEventListener('touchstart', e=>{ e.preventDefault(); fire(); }, {passive:false});
+    b.addEventListener('click', fire);
   });
-  todayUnsub = ()=>ref.off('value', cb);
-}
-subscribeToday();
 
-function dateBefore(n){ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
-
-async function loadBoard(){
-  if(!db){ renderRows([]); return; }
-
-  if(CURRENT_PERIOD==='ALL'){
-    // 오늘 실시간에서 이미 render, 여기선 별도 처리 없음
-    return;
-  }
-  setStatus('statusBar', '', '집계중…');
-  const days = CURRENT_PERIOD==='WEEK' ? 7 : 31;
-  const snaps = [];
-  for(let i=0;i<days;i++){
-    const date = dateBefore(i);
-    const s = await db.ref(`scores/${date}`).get().catch(()=>null);
-    if(s && s.exists()) snaps.push(s);
-  }
-  renderRows(aggregate(snaps));
-  setStatus('statusBar','ok','집계 완료');
-}
-
-function aggregate(snaps){
-  const arr=[];
-  snaps.forEach(s=>{
-    const v=s.val()||{};
-    Object.entries(v).forEach(([nick,obj])=>{
-      if(!obj || typeof obj.score!=='number') return;
-      if(CURRENT_COUNTRY!=='ALL' && String(obj.country).toUpperCase()!==CURRENT_COUNTRY) return;
-      arr.push({nick, score: obj.score, country: (obj.country||'??').toUpperCase()});
-    });
+  // ── Overlay events ────────────────────────────────
+  nickname.addEventListener('input', ()=>{
+    btnStart.disabled = !(nickname.value.trim().length >= 2);
   });
-  arr.sort((a,b)=>b.score-a.score);
-  return arr.slice(0,200);
-}
-
-function renderRows(rows){
-  const tb = document.querySelector('#board tbody');
-  tb.innerHTML='';
-  rows.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${escapeHtml(r.nick)}</td><td>${r.country}</td><td>${r.score}</td>`;
-    tb.appendChild(tr);
+  btnStart.addEventListener('click', ()=>{
+    nick = nickname.value.trim();
+    if (nick.length < 2) return;
+    hideOverlay();
+    resetGame();
+    requestAnimationFrame(tick);
   });
-}
-function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}
 
-// 초기 표시(오늘 실시간 구독 반영 전에 비어 보일 수 있음)
-renderRows([]);
-
+  // 초기 표시
+  board = createBoard();
+  updateHUD();
+  showOverlay('시작 / Restart', false);
+})();
 </script>
 </body>
 </html>
