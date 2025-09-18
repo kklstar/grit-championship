@@ -12,6 +12,7 @@
   header h1{font-size:18px;margin:0 8px 0 0;white-space:nowrap}
   input,button{background:#0e1430;color:var(--fg);border:1px solid #1e2a55;border-radius:10px;padding:8px 10px;outline:none}
   button{cursor:pointer;font-weight:700}
+  button:disabled{opacity:.4;cursor:not-allowed}
   .wrap{display:grid;gap:16px;grid-template-columns:360px 1fr;padding:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
   .board{position:relative;display:flex;justify-content:center}
@@ -52,9 +53,9 @@
 <body>
   <header>
     <h1>천하제일 근성 대회</h1>
-    <input id="nickname" placeholder="닉네임 / Nickname" />
-    <button id="btnStart">게임 시작 / Start</button>
-    <button id="btnRestart">재시작 / Restart</button>
+    <input id="nickname" placeholder="닉네임 / Nickname (2자 이상)" />
+    <button id="btnStart" disabled>게임 시작 / Start</button>
+    <button id="btnRestart" disabled>재시작 / Restart</button>
     <span id="countryBadge" style="padding:6px 10px;border:1px solid #1e2a55;border-radius:10px;opacity:.85">KR</span>
     <span id="status"></span>
   </header>
@@ -151,6 +152,20 @@ async function detectCountry(){
   $("#countryBadge").textContent = USER_COUNTRY;
 }
 
+/* ---------------- (요청) Guest4701 자동 삭제 — 1회만 ---------------- */
+async function purgeGuestOnce(){
+  if(!RTDB_ENABLED) return;
+  const flagKey = "purged_Guest4701_v1";
+  if(localStorage.getItem(flagKey)) return; // 이미 1회 실행됨
+  try{
+    const snap = await db.ref("scores_v1").orderByChild("nickname").equalTo("Guest4701").once("value");
+    if(snap.exists()){
+      snap.forEach(c => db.ref("scores_v1/"+c.key).remove());
+    }
+    localStorage.setItem(flagKey, "1");
+  }catch(e){ console.warn("Purge failed:", e); }
+}
+
 /* ---------------- 점수 업로드 ---------------- */
 const DURATION_MIN_MS = 0;
 async function submitScore(nickname, score, country="KR", durationMs=0){
@@ -241,7 +256,7 @@ function wirePeriodUI(){
   });
 }
 
-/* ---------------- 테트리스 (I조각 가중치↑) ---------------- */
+/* ---------------- 테트리스 (막대기 비율↑ + 12회 이내 보장) ---------------- */
 const cvs=$("#game"), ctx=cvs.getContext("2d");
 const COL=10, ROW=20, CELL=24; cvs.width=COL*CELL; cvs.height=ROW*CELL;
 const COLORS=["#000","#36b24d","#5bc0de","#f0ad4e","#d9534f","#8e44ad","#3498db","#2ecc71"];
@@ -254,16 +269,26 @@ const SHAPES={
   J:[[6,0,0],[6,6,6]],
   L:[[0,0,7],[7,7,7]]
 };
-/* 가중치: I≈28%, 나머지 균등 분배(대략) */
+/* 가중치: I≈28%, 나머지 분배 */
 const TYPES = ["I","O","T","S","Z","J","L"];
 const WEIGHTS = { I:0.28, O:0.12, T:0.16, S:0.12, Z:0.12, J:0.10, L:0.10 };
+let sinceI = 0; // 마지막 I 이후 나온 조각 수(보장용)
+
+/* 확률 + 보장 pick */
 function weightedPick(){
   const r = Math.random();
   let acc=0;
   for(const t of TYPES){ acc+=WEIGHTS[t]; if(r<=acc) return t; }
-  return "T"; // fallback
+  return "T";
 }
-const rndShape=()=> SHAPES[weightedPick()].map(r=>r.slice());
+function pickTypeWithGuarantee(){
+  if(sinceI>=11){ sinceI=0; return "I"; }          // 12번째 안에 반드시 I
+  const t = weightedPick();
+  if(t==="I") sinceI=0; else sinceI++;
+  return t;
+}
+
+const rndShape=()=> SHAPES[pickTypeWithGuarantee()].map(r=>r.slice());
 
 const board=Array.from({length:ROW},()=>Array(COL).fill(0));
 let piece=null, score=0, lines=0, level=1, running=false, startMs=0, lastDrop=0, rafId=0;
@@ -280,7 +305,13 @@ function softDrop(){ if(!piece) return; if(!collides(piece.x,piece.y+1,piece.m))
 function hardDrop(){ if(!piece) return; let moved=0; while(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; moved++; } score+=2*moved; merge(); clearLines(); if(!spawn()){ gameOver(); return; } draw(); }
 function tick(){ if(!running) return; const speed=Math.max(70,720 - level*55); const now=performance.now(); if(now-lastDrop>speed){ stepDown(); lastDrop=now; } draw(); rafId=requestAnimationFrame(tick); }
 
-/* 닉네임 필수 체크 */
+/* 닉네임 필수 + 버튼 활성화 */
+function validateNick(){
+  const ok = ($("#nickname")?.value || "").trim().length >= 2;
+  $("#btnStart").disabled = !ok;
+  $("#btnRestart").disabled = !ok;
+  return ok;
+}
 function getNickname(){
   const v = ($("#nickname")?.value || "").trim();
   if(v.length < 2){
@@ -292,11 +323,13 @@ function getNickname(){
   return v.slice(0,20);
 }
 function gameStart(){
+  if(!validateNick()) return;
   const nick = getNickname();
-  if(!nick) return; // 닉네임 없으면 시작 금지
+  if(!nick) return;
+
   cancelAnimationFrame(rafId);
   for(const r of board) r.fill(0);
-  score=0; lines=0; level=1; piece=null;
+  score=0; lines=0; level=1; piece=null; sinceI=0;
   if(!spawn()){ gameOver(); return; }
   running=true; startMs=Date.now(); lastDrop=0;
   $("#gameOver").style.display="none";
@@ -306,7 +339,7 @@ function gameOver(){
   if(!running) return;
   running=false;
   $("#gameOver").style.display="flex";
-  const nick = getNickname(); // 저장 시점에 다시 확인
+  const nick = getNickname();
   if(nick){
     const dur = Date.now()-startMs;
     submitScore(nick, score, USER_COUNTRY, dur);
@@ -315,6 +348,9 @@ function gameOver(){
 
 /* 키/터치 */
 window.addEventListener("keydown",e=>{
+  if(e.target === $("#nickname") && e.key==="Enter"){ // 입력창에서 Enter로 바로 시작
+    gameStart(); return;
+  }
   if(!running||!piece) return;
   if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
   else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y,piece.m)) piece.x++;
@@ -346,10 +382,14 @@ ctrls.forEach(btn=>{
 /* 초기화 */
 $("#btnStart").addEventListener("click", ()=>gameStart());
 $("#btnRestart").addEventListener("click",()=>gameStart());
+$("#nickname").addEventListener("input", validateNick);
 $("#nickname").value = localStorage.getItem("nick") || ("Guest"+Math.floor(1000+Math.random()*9000));
+validateNick();
+
 detectCountry();
 wirePeriodUI();
 startLeaderboard(currentPeriod);
+purgeGuestOnce();   // ← Guest4701 자동 삭제(최초 1회)
 draw();
 document.addEventListener("touchstart",()=>{ document.getElementById("touchCtrls").style.display="flex"; },{once:true});
 </script>
