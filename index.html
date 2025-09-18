@@ -10,29 +10,28 @@
   body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
   header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   header h1{font-size:18px;margin:0 8px 0 0;white-space:nowrap}
-  input,button{background:#0e1430;color:var(--fg);border:1px solid #1e2a55;border-radius:10px;padding:8px 10px;outline:none}
-  button{cursor:pointer;font-weight:700}
-  button:disabled{opacity:.4;cursor:not-allowed}
   .wrap{display:grid;gap:16px;grid-template-columns:360px 1fr;padding:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
   .board{position:relative;display:flex;justify-content:center}
   canvas{background:#0a0f22;border:1px solid #22306e;border-radius:12px;display:block;width:100%;max-width:360px;height:auto;touch-action:none}
-  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.28);border-radius:12px;text-align:center}
-  .overlay h2{margin:0 0 6px}
-  .stat{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;opacity:.95}
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.38);border-radius:12px;text-align:center;padding:16px}
+  .overlay h2{margin:0 0 8px}
+  .panel{background:#0e1430;border:1px solid #1e2a55;border-radius:14px;padding:14px;min-width:78%;max-width:90%}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  input,button{background:#0e1430;color:var(--fg);border:1px solid #1e2a55;border-radius:10px;padding:10px 12px;outline:none}
+  button{cursor:pointer;font-weight:700}
+  button:disabled{opacity:.4;cursor:not-allowed}
   .ok{background:#0c2a18;border:1px solid #1a6b3b}
   .danger{background:#2a1212;border:1px solid #6b1a1a}
-  #status{display:none;padding:8px 10px;border-radius:10px;margin:8px 0;font-size:13px}
-
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #status{display:none;padding:6px 10px;border-radius:10px;margin-left:8px;font-size:13px}
   .seg{display:inline-flex;border:1px solid #1e2a55;border-radius:10px;overflow:hidden}
   .seg button{border:none;border-right:1px solid #1e2a55;background:#0e1430;padding:8px 12px}
   .seg button:last-child{border-right:none}
   .seg button.active{background:#15307e}
-
   table{width:100%;border-collapse:collapse}
   th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:14px}
   th{text-align:left;opacity:.9}
+  .stat{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;opacity:.95}
 
   /* 모바일 컨트롤러 */
   .controls{display:none;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap}
@@ -53,9 +52,6 @@
 <body>
   <header>
     <h1>천하제일 근성 대회</h1>
-    <input id="nickname" placeholder="닉네임 / Nickname (2자 이상)" />
-    <button id="btnStart" disabled>게임 시작 / Start</button>
-    <button id="btnRestart" disabled>재시작 / Restart</button>
     <span id="countryBadge" style="padding:6px 10px;border:1px solid #1e2a55;border-radius:10px;opacity:.85">KR</span>
     <span id="status"></span>
   </header>
@@ -64,11 +60,27 @@
     <!-- 좌측: 게임 -->
     <section class="card">
       <div style="text-align:center;opacity:.6;margin:4px 0">AD — 여기에 배너/스크립트</div>
+
       <div class="board">
         <canvas id="game" width="240" height="480"></canvas>
+
+        <!-- 시작/재시작 오버레이 -->
+        <div class="overlay start" id="startOverlay" style="display:flex">
+          <div class="panel">
+            <h2 id="ovTitle">게임 시작</h2>
+            <div style="opacity:.8;margin-bottom:10px">닉네임을 입력하고 시작하세요.</div>
+            <div class="row" style="margin-bottom:10px">
+              <input id="nickname" placeholder="닉네임 / Nickname (2자 이상)" style="min-width:200px" />
+              <button id="btnStart" disabled>시작</button>
+            </div>
+            <div style="font-size:12px;opacity:.7">조작키: ← → 이동 · ↑ 회전 · ↓ 소프트드롭 · Space 하드드롭</div>
+          </div>
+        </div>
+
+        <!-- 게임오버 오버레이(문구만, 버튼은 위 오버레이 재사용) -->
         <div class="overlay" id="gameOver">
           <h2>GAME OVER</h2>
-          <div>다시 하려면 <b>재시작</b> 버튼을 누르세요</div>
+          <div>다시 하려면 <b>닉네임 입력</b> 후 <b>시작</b>을 누르세요</div>
         </div>
       </div>
 
@@ -156,23 +168,18 @@ async function detectCountry(){
 async function purgeGuestOnce(){
   if(!RTDB_ENABLED) return;
   const flagKey = "purged_Guest4701_v1";
-  if(localStorage.getItem(flagKey)) return; // 이미 1회 실행됨
+  if(localStorage.getItem(flagKey)) return;
   try{
     const snap = await db.ref("scores_v1").orderByChild("nickname").equalTo("Guest4701").once("value");
-    if(snap.exists()){
-      snap.forEach(c => db.ref("scores_v1/"+c.key).remove());
-    }
+    if(snap.exists()){ snap.forEach(c => db.ref("scores_v1/"+c.key).remove()); }
     localStorage.setItem(flagKey, "1");
   }catch(e){ console.warn("Purge failed:", e); }
 }
 
 /* ---------------- 점수 업로드 ---------------- */
-const DURATION_MIN_MS = 0;
 async function submitScore(nickname, score, country="KR", durationMs=0){
   if(!RTDB_ENABLED) return;
-  if(durationMs < DURATION_MIN_MS) return;
   if(!score || score<=0) return;
-
   const payload = {
     nickname: String(nickname||"Guest").trim().slice(0,20),
     score: Math.floor(score),
@@ -272,22 +279,19 @@ const SHAPES={
 /* 가중치: I≈28%, 나머지 분배 */
 const TYPES = ["I","O","T","S","Z","J","L"];
 const WEIGHTS = { I:0.28, O:0.12, T:0.16, S:0.12, Z:0.12, J:0.10, L:0.10 };
-let sinceI = 0; // 마지막 I 이후 나온 조각 수(보장용)
+let sinceI = 0;
 
-/* 확률 + 보장 pick */
 function weightedPick(){
-  const r = Math.random();
-  let acc=0;
+  const r = Math.random(); let acc=0;
   for(const t of TYPES){ acc+=WEIGHTS[t]; if(r<=acc) return t; }
   return "T";
 }
 function pickTypeWithGuarantee(){
-  if(sinceI>=11){ sinceI=0; return "I"; }          // 12번째 안에 반드시 I
+  if(sinceI>=11){ sinceI=0; return "I"; }
   const t = weightedPick();
   if(t==="I") sinceI=0; else sinceI++;
   return t;
 }
-
 const rndShape=()=> SHAPES[pickTypeWithGuarantee()].map(r=>r.slice());
 
 const board=Array.from({length:ROW},()=>Array(COL).fill(0));
@@ -305,34 +309,42 @@ function softDrop(){ if(!piece) return; if(!collides(piece.x,piece.y+1,piece.m))
 function hardDrop(){ if(!piece) return; let moved=0; while(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; moved++; } score+=2*moved; merge(); clearLines(); if(!spawn()){ gameOver(); return; } draw(); }
 function tick(){ if(!running) return; const speed=Math.max(70,720 - level*55); const now=performance.now(); if(now-lastDrop>speed){ stepDown(); lastDrop=now; } draw(); rafId=requestAnimationFrame(tick); }
 
-/* 닉네임 필수 + 버튼 활성화 */
+/* 닉네임 필수 + 팝업 제어 */
 function validateNick(){
   const ok = ($("#nickname")?.value || "").trim().length >= 2;
   $("#btnStart").disabled = !ok;
-  $("#btnRestart").disabled = !ok;
   return ok;
 }
 function getNickname(){
   const v = ($("#nickname")?.value || "").trim();
   if(v.length < 2){
-    setStatus("닉네임을 2자 이상 입력하세요.", false);
-    $("#nickname").focus();
+    $("#ovTitle").textContent = "닉네임 2자 이상 입력하세요";
     return null;
   }
   localStorage.setItem("nick", v);
   return v.slice(0,20);
 }
+function openStartOverlay(title="게임 시작"){
+  $("#ovTitle").textContent = title;
+  $("#startOverlay").style.display="flex";
+  $("#gameOver").style.display="none";
+  $("#nickname").focus();
+}
+function closeStartOverlay(){
+  $("#startOverlay").style.display="none";
+}
+
 function gameStart(){
   if(!validateNick()) return;
   const nick = getNickname();
   if(!nick) return;
 
+  closeStartOverlay();
   cancelAnimationFrame(rafId);
   for(const r of board) r.fill(0);
   score=0; lines=0; level=1; piece=null; sinceI=0;
   if(!spawn()){ gameOver(); return; }
   running=true; startMs=Date.now(); lastDrop=0;
-  $("#gameOver").style.display="none";
   requestAnimationFrame(tick);
 }
 function gameOver(){
@@ -344,12 +356,15 @@ function gameOver(){
     const dur = Date.now()-startMs;
     submitScore(nick, score, USER_COUNTRY, dur);
   }
+  // 게임 오버 후 자동으로 시작 팝업을 열어 재시작 유도
+  setTimeout(()=>openStartOverlay("재시작 / Restart"), 600);
 }
 
 /* 키/터치 */
 window.addEventListener("keydown",e=>{
-  if(e.target === $("#nickname") && e.key==="Enter"){ // 입력창에서 Enter로 바로 시작
-    gameStart(); return;
+  // 팝업에서 Enter → 시작
+  if(e.key==="Enter" && $("#startOverlay").style.display!=="none"){
+    e.preventDefault(); gameStart(); return;
   }
   if(!running||!piece) return;
   if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
@@ -381,15 +396,14 @@ ctrls.forEach(btn=>{
 
 /* 초기화 */
 $("#btnStart").addEventListener("click", ()=>gameStart());
-$("#btnRestart").addEventListener("click",()=>gameStart());
 $("#nickname").addEventListener("input", validateNick);
-$("#nickname").value = localStorage.getItem("nick") || ("Guest"+Math.floor(1000+Math.random()*9000));
+$("#nickname").value = localStorage.getItem("nick") || "";
 validateNick();
 
 detectCountry();
 wirePeriodUI();
 startLeaderboard(currentPeriod);
-purgeGuestOnce();   // ← Guest4701 자동 삭제(최초 1회)
+purgeGuestOnce();   // Guest4701 자동 삭제(최초 1회)
 draw();
 document.addEventListener("touchstart",()=>{ document.getElementById("touchCtrls").style.display="flex"; },{once:true});
 </script>
