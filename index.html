@@ -95,10 +95,17 @@
     <section class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:6px">
         <strong>리더보드 / Leaderboard</strong>
-        <div class="seg" id="periodSeg">
-          <button data-p="ALL" class="active">ALL</button>
-          <button data-p="WEEK">This Week</button>
-          <button data-p="MONTH">This Month</button>
+        <div class="row" style="gap:8px">
+          <!-- 기간 필터 -->
+          <div class="seg" id="periodSeg">
+            <button data-p="ALL" class="active">ALL</button>
+            <button data-p="WEEK">This Week</button>
+            <button data-p="MONTH">This Month</button>
+          </div>
+          <!-- 국가 필터 -->
+          <div class="seg" id="countrySeg">
+            <!-- 버튼은 데이터 로드 후 동적으로 생성됩니다 -->
+          </div>
         </div>
       </div>
 
@@ -147,25 +154,67 @@ async function detectCountry(){
 }
 
 /* 점수 업로드 */
+const DURATION_MIN_MS = 0; // (원하면 1500~3000 등으로 올리세요)
 async function submitScore(nickname, score, country="KR", durationMs=0){
   if(!RTDB_ENABLED) return;
-  if(durationMs<3000 || !score || score<=0) return;   // 스팸 방지
-  const payload = { nickname:String(nickname||"Guest").slice(0,20), score:Math.floor(score), country:String(country||"KR").slice(0,3).toUpperCase(), date:new Date().toISOString() };
-  try{ await db.ref("scores_v1").push(payload); const s=$("#status2"); if(s){s.style.display="block"; s.textContent="점수 저장 완료 / Saved"; s.className="ok";}}
-  catch(err){ const s=$("#status2"); if(s){s.style.display="block"; s.textContent="점수 저장 실패 / Failed"; s.className="danger";} }
+  if(durationMs < DURATION_MIN_MS) return;
+  if(!score || score<=0) return;
+
+  const payload = {
+    nickname: String(nickname||"Guest").trim().slice(0,20),
+    score: Math.floor(score),
+    country: String(country||"KR").trim().slice(0,3).toUpperCase(),
+    date: new Date().toISOString()
+  };
+  try{
+    await db.ref("scores_v1").push(payload);
+    const s=$("#status2"); if(s){s.style.display="block"; s.textContent="점수 저장 완료 / Saved"; s.className="ok";}
+  }catch(err){
+    const s=$("#status2"); if(s){s.style.display="block"; s.textContent="점수 저장 실패 / Failed"; s.className="danger";}
+  }
 }
 
-/* 리더보드 ─ 기간 필터 */
-let currentRef=null, currentPeriod="ALL";
+/* 리더보드 ─ 기간 + 국가 필터 */
+let currentRef=null, currentPeriod="ALL", currentCountry="ALL";
+let latestRows = []; // 마지막 페치 결과 캐시
+
 function getPeriodStartISO(period){
   const now=new Date();
   if(period==="WEEK"){ const d=new Date(now); d.setDate(d.getDate()-6); d.setHours(0,0,0,0); return d.toISOString(); }
   if(period==="MONTH"){ const d=new Date(now.getFullYear(), now.getMonth(), 1); return d.toISOString(); }
   return null; // ALL
 }
+function renderCountryButtons(rows){
+  const box = $("#countrySeg");
+  const set = new Set(rows.map(r => (r.country||"KR").toUpperCase()));
+  set.add("ALL");
+  set.add(USER_COUNTRY); // 사용자의 국가 버튼 항상 포함
+  const list = [...set].sort();
+  box.innerHTML = "";
+  list.forEach(c=>{
+    const b=document.createElement("button");
+    b.textContent=c;
+    b.dataset.c=c;
+    if(c===currentCountry) b.classList.add("active");
+    b.addEventListener("click",()=>{
+      box.querySelectorAll("button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      currentCountry=c;
+      renderLeaderboard(latestRows); // 재필터링
+    });
+    box.appendChild(b);
+  });
+  // 기본 활성화
+  const active = box.querySelector(`button[data-c="${currentCountry}"]`) || box.querySelector('button[data-c="ALL"]');
+  if(active){ box.querySelectorAll("button").forEach(x=>x.classList.remove("active")); active.classList.add("active"); }
+}
 function renderLeaderboard(rows){
+  // 캐시 저장
+  latestRows = rows.slice();
+  // 국가 필터 적용
+  const filtered = currentCountry==="ALL" ? rows : rows.filter(r => (r.country||"").toUpperCase()===currentCountry);
   const tb=$("#leader-tbody"); tb.innerHTML="";
-  rows.forEach((r,i)=>{
+  filtered.slice(0,50).forEach((r,i)=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`<td style="text-align:right;padding:6px">${i+1}</td>
       <td style="padding:6px">${r.nickname??"-"}</td>
@@ -186,7 +235,8 @@ function startLeaderboard(period="ALL"){
   currentRef.on("value", snap=>{
     const arr=[]; snap.forEach(c=>arr.push(c.val()));
     arr.sort((a,b)=>(b.score||0)-(a.score||0));     // 점수 내림차순
-    renderLeaderboard(arr.slice(0,50));             // Top 50
+    renderCountryButtons(arr);                      // 국가 버튼 갱신/유지
+    renderLeaderboard(arr);                         // 현재 국가 필터로 렌더
   });
 }
 function wirePeriodUI(){
@@ -200,7 +250,7 @@ function wirePeriodUI(){
   });
 }
 
-/* ─── 테트리스(이전 그대로, 시작/재시작 안정화) ─── */
+/* ─── 테트리스 ─── */
 const cvs=$("#game"), ctx=cvs.getContext("2d");
 const COL=10, ROW=20, CELL=24; cvs.width=COL*CELL; cvs.height=ROW*CELL;
 const COLORS=["#000","#36b24d","#5bc0de","#f0ad4e","#d9534f","#8e44ad","#3498db","#2ecc71"];
@@ -219,16 +269,53 @@ function stepDown(){ if(!piece) return; if(!collides(piece.x,piece.y+1,piece.m))
 function softDrop(){ if(!piece) return; if(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; score+=1; } }
 function hardDrop(){ if(!piece) return; let moved=0; while(!collides(piece.x,piece.y+1,piece.m)){ piece.y++; moved++; } score+=2*moved; merge(); clearLines(); if(!spawn()){ gameOver(); return; } draw(); }
 function tick(){ if(!running) return; const speed=Math.max(70,720 - level*55); const now=performance.now(); if(now-lastDrop>speed){ stepDown(); lastDrop=now; } draw(); rafId=requestAnimationFrame(tick); }
-function gameStart(){ cancelAnimationFrame(rafId); for(const r of board) r.fill(0); score=0; lines=0; level=1; piece=null; if(!spawn()){ gameOver(); return; } running=true; startMs=Date.now(); lastDrop=0; $("#gameOver").style.display="none"; requestAnimationFrame(tick); }
-function gameOver(){ if(!running) return; running=false; $("#gameOver").style.display="flex"; const nick=$("#nickname")?.value || "Guest"; const dur=Date.now()-startMs; submitScore(nick, score, USER_COUNTRY, dur); }
-window.addEventListener("keydown",e=>{ if(!running||!piece) return; if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y,piece.m)) piece.x--; else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y,piece.m)) piece.x++; else if(e.code==="ArrowDown"){ if(!collides(piece.x,piece.y+1,piece.m)) softDrop(); } else if(e.code==="ArrowUp"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; } else if(e.code==="Space"){ e.preventDefault(); hardDrop(); } draw(); });
+function gameStart(){
+  cancelAnimationFrame(rafId);
+  for(const r of board) r.fill(0);
+  score=0; lines=0; level=1; piece=null;
+  if(!spawn()){ gameOver(); return; }
+  running=true; startMs=Date.now(); lastDrop=0;
+  $("#gameOver").style.display="none";
+  requestAnimationFrame(tick);
+}
+function gameOver(){
+  if(!running) return;
+  running=false;
+  $("#gameOver").style.display="flex";
+  const nick = ($("#nickname")?.value || "Guest").trim();
+  const dur = Date.now()-startMs;
+  submitScore(nick, score, USER_COUNTRY, dur);
+}
+window.addEventListener("keydown",e=>{
+  if(!running||!piece) return;
+  if(e.code==="ArrowLeft" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
+  else if(e.code==="ArrowRight" && !collides(piece.x+1,piece.y,piece.m)) piece.x++;
+  else if(e.code==="ArrowDown"){ if(!collides(piece.x,piece.y+1,piece.m)) softDrop(); }
+  else if(e.code==="ArrowUp"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
+  else if(e.code==="Space"){ e.preventDefault(); hardDrop(); }
+  draw();
+});
 const ctrls=document.querySelectorAll(".ctl"); let holdTimer=null, repeatTimer=null;
 function startHold(action){ doAction(action); holdTimer=setTimeout(()=>{ repeatTimer=setInterval(()=>doAction(action),80); },280); }
 function endHold(){ clearTimeout(holdTimer); clearInterval(repeatTimer); }
-function doAction(act){ if(!running||!piece) return; if(act==="left" && !collides(piece.x-1,piece.y,piece.m)) piece.x--; else if(act==="right" && !collides(piece.x+1,piece.y,piece.m)) piece.x++; else if(act==="down"){ if(!collides(piece.x,piece.y+1,piece.m)) softDrop(); } else if(act==="rotate"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; } else if(act==="drop"){ hardDrop(); } draw(); }
-ctrls.forEach(btn=>{ btn.addEventListener("touchstart",e=>{ e.preventDefault(); startHold(btn.dataset.act); },{passive:false}); btn.addEventListener("touchend",e=>{ e.preventDefault(); endHold(); },{passive:false}); btn.addEventListener("mousedown",e=>{ e.preventDefault(); startHold(btn.dataset.act); }); btn.addEventListener("mouseup",e=>{ e.preventDefault(); endHold(); }); btn.addEventListener("mouseleave",e=>{ e.preventDefault(); endHold(); }); });
+function doAction(act){
+  if(!running||!piece) return;
+  if(act==="left" && !collides(piece.x-1,piece.y,piece.m)) piece.x--;
+  else if(act==="right" && !collides(piece.x+1,piece.y,piece.m)) piece.x++;
+  else if(act==="down"){ if(!collides(piece.x,piece.y+1,piece.m)) softDrop(); }
+  else if(act==="rotate"){ const r=rotate(piece.m); if(!collides(piece.x,piece.y,r)) piece.m=r; }
+  else if(act==="drop"){ hardDrop(); }
+  draw();
+}
+ctrls.forEach(btn=>{
+  btn.addEventListener("touchstart",e=>{ e.preventDefault(); startHold(btn.dataset.act); },{passive:false});
+  btn.addEventListener("touchend",e=>{ e.preventDefault(); endHold(); },{passive:false});
+  btn.addEventListener("mousedown",e=>{ e.preventDefault(); startHold(btn.dataset.act); });
+  btn.addEventListener("mouseup",e=>{ e.preventDefault(); endHold(); });
+  btn.addEventListener("mouseleave",e=>{ e.preventDefault(); endHold(); });
+});
 
-/* 버튼/초기화 */
+/* 초기화 */
 $("#btnStart").addEventListener("click", ()=>gameStart());
 $("#btnRestart").addEventListener("click",()=>gameStart());
 detectCountry();
