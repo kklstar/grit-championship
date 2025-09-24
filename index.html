@@ -17,16 +17,16 @@ async function ensureFirebaseReady(){
 
   // ❗❗ 여기에 "Firebase 콘솔 > 프로젝트 설정 > 웹 앱"의 값을 그대로 붙여 넣으세요.
   //    (이미 붙여 넣으셨다면 아래 값 유지)
-  window.firebaseConfig = window.firebaseConfig || {
-    apiKey: "PASTE_YOUR_apiKey",
-    authDomain: "PASTE_YOUR_authDomain",
-    databaseURL: "PASTE_YOUR_databaseURL",   // ← 이 값이 비어 있으면 RTDB 연결이 안 됩니다.
-    projectId: "PASTE_YOUR_projectId",
-    storageBucket: "PASTE_YOUR_storageBucket",
-    messagingSenderId: "PASTE_YOUR_messagingSenderId",
-    appId: "PASTE_YOUR_appId",
-    measurementId: "PASTE_YOUR_measurementId"
-  };
+   const firebaseConfig = {
+  apiKey: "AIzaSyAHQngy1vRalgSIMOHEJvKcKkUGkUQWkPQ",
+  authDomain: "grit-championship-v02.firebaseapp.com",
+  databaseURL: "https://grit-championship-v02-default-rtdb.firebaseio.com",
+  projectId: "grit-championship-v02",
+  storageBucket: "grit-championship-v02.firebasestorage.app",
+  messagingSenderId: "644513888198",
+  appId: "1:644513888198:web:baa0728174614bb68124c7",
+  measurementId: "G-F8JGH16CR6"
+};
 
   if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
   return firebase.database();
@@ -147,3 +147,4 @@ watchRTDBBadge();
 loadScoresAndRender({country:'ALL'}); // 최초 ALL
 </script>
 <!-- === RTDB 통합: END === -->
+
