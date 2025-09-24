@@ -1,115 +1,169 @@
-<!-- Firebase 랭킹 통합 블록 (디자인/게임 로직 불변) -->
+<!-- === RTDB 통합: START (붙여넣기 전용 / 디자인·게임 로직 무변경) === -->
 <script>
-(function () {
-  /* ====== 공용 로더 ====== */
-  function loadScriptOnce(src) {
-    return new Promise(function (resolve, reject) {
-      if ([...document.scripts].some(s => s.src === src)) return resolve();
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
+/** 0) 동적 스크립트 로더 (중복 로드 방지) */
+function loadScriptOnce(src){
+  return new Promise((resolve,reject)=>{
+    if([...(document.scripts||[])].some(s=>s.src===src)) return resolve();
+    const s=document.createElement('script');
+    s.src=src; s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
 
-  /* ====== 날짜/키 유틸 ====== */
-  function ymd(d = new Date()) {
-    // UTC 기준으로 날짜 키 고정 (타임존 차이로 하루 어긋남 방지)
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 10); // YYYY-MM-DD
-  }
-  function safeKey(str) {
-    // RTDB 키 금지 문자 치환
-    return String(str || 'Guest').replace(/[.#$/\[\]]/g, '_').trim().slice(0, 30) || 'Guest';
-  }
+/** 1) Firebase SDK 로드 + 초기화 */
+async function ensureFirebaseReady(){
+  // compat SDK (현재 코드와 궁합 ↑)
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
 
-  /* ====== Firebase 준비 + 초기화 ====== */
-  async function ensureFirebaseReady() {
-    // compat SDK (게임 코드 변경 없이 사용)
-    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
-    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
+  // ❗❗ 여기에 "Firebase 콘솔 > 프로젝트 설정 > 웹 앱"의 값을 그대로 붙여 넣으세요.
+  //    (이미 붙여 넣으셨다면 아래 값 유지)
+  window.firebaseConfig = window.firebaseConfig || {
+    apiKey: "PASTE_YOUR_apiKey",
+    authDomain: "PASTE_YOUR_authDomain",
+    databaseURL: "PASTE_YOUR_databaseURL",   // ← 이 값이 비어 있으면 RTDB 연결이 안 됩니다.
+    projectId: "PASTE_YOUR_projectId",
+    storageBucket: "PASTE_YOUR_storageBucket",
+    messagingSenderId: "PASTE_YOUR_messagingSenderId",
+    appId: "PASTE_YOUR_appId",
+    measurementId: "PASTE_YOUR_measurementId"
+  };
 
-    /* ✅ 본인 프로젝트의 웹 앱 구성 값 유지/반영 */
-    const firebaseConfig = {
-      /* ↓↓↓ 여기에 'Firebase 콘솔 > 프로젝트 설정 > 웹 앱'의 값을 그대로 넣으세요 ↓↓↓ */
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID",
-      measurementId: "G-XXXXXXX"
-      /* ↑↑↑ 그대로 유지/치환 ↑↑↑ */
-    };
+  if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+  return firebase.database();
+}
 
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    return firebase.database();
-  }
+/** 2) 유틸(키/날짜) — RTDB 키 금지문자 처리 */
+function safeKey(str=''){
+  return String(str).replace(/[.#$\[\]]/g,'_').trim().slice(0,30) || 'Guest';
+}
+function ymd(d=new Date()){
+  // 로컬 → UTC 보정(날짜 경계 오차 방지)
+  return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
 
-  /* ====== 부팅 ====== */
-  async function boot() {
+/** 3) 저장: 게임 종료시 1회 호출 */
+async function saveScoreToRTDB(nickname, score, countryCode){
+  try{
     const db = await ensureFirebaseReady();
+    const dateKey = ymd();
+    const nickKey = safeKey(nickname);
+    const path = `scores/${dateKey}/${nickKey}`;
 
-    /* 연결 상태 간단 체크(배지용 로그) — UI는 건드리지 않음 */
-    try {
-      await db.ref('.info/connected').once('value');
-      console.log('[RTDB] connected ✔');
-    } catch (e) {
-      console.warn('[RTDB] connect check failed', e);
-    }
+    await db.ref(path).set({
+      score: Number(score)||0,
+      country: (countryCode||'KR').toUpperCase(),
+      ts: Date.now()
+    });
+    console.log('[RTDB] saved:', path);
+  }catch(e){
+    console.warn('[RTDB] save failed:', e);
+  }
+}
 
-    /* ====== 랭킹 구독: 모든 날짜 → rowsAll에 적재 ======
-       (렌더러는 기존 window.render()를 그대로 호출)
-    */
-    db.ref('scores').on('value', snap => {
-      const list = [];
-      snap.forEach(dateSnap => {
-        dateSnap.forEach(userSnap => {
-          const v = userSnap.val();
-          if (v && typeof v.score === 'number') list.push(v);
+/** 4) 읽기: 리스트 렌더 자료 rowsAll 생성(기존 render()는 그대로 사용) */
+async function loadScoresAndRender(filter){
+  try{
+    const db = await ensureFirebaseReady();
+    const snap = await db.ref('scores').get();
+    const rows=[];
+
+    const wk = filter?.weekRange;   // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'}
+    const month = filter?.month;    // 'YYYY-MM'
+    const country = (filter?.country||'ALL').toUpperCase();
+
+    snap.forEach(dateSnap=>{
+      const dateKey = dateSnap.key; // YYYY-MM-DD
+      // 기간 필터
+      if (wk && !(dateKey>=wk.start && dateKey<=wk.end)) return;
+      if (month && !dateKey.startsWith(month)) return;
+
+      const users = dateSnap.val()||{};
+      Object.keys(users).forEach(n=>{
+        const v = users[n]||{};
+        if (country!=='ALL' && (v.country||'KR').toUpperCase()!==country) return;
+        rows.push({
+          nick: n,
+          score: Number(v.score)||0,
+          country: (v.country||'KR').toUpperCase(),
+          date: dateKey,
+          ts: v.ts||0
         });
       });
-      // 점수 내림차순 정렬 후 보관
-      window.rowsAll = list.sort((a, b) => b.score - a.score);
-      if (typeof window.render === 'function') window.render();
     });
 
-    /* ====== 게임 종료 훅: 기존 endGame 보존 + 1회 저장 ======
-       - 디자인/게임 로직은 그대로, 저장만 추가
-       - 닉네임: #nickname, 점수: #ui-score, 국가: window.activeCountry or KR
-    */
-    const _endGame = window.endGame || function () {};
-    window.endGame = function () {
-      try {
-        const nick = (document.getElementById('nickname')?.value || 'Guest').trim();
-        const score = parseInt(document.getElementById('ui-score')?.textContent || '0', 10) || 0;
-        const country = (window.activeCountry || document.getElementById('countryBtn')?.textContent || 'KR').trim();
-
-        if (nick.length >= 2 && score > 0) {
-          const dateKey = ymd();
-          const nickKey = safeKey(nick);
-          db.ref(`scores/${dateKey}/${nickKey}`).set({
-            nickname: nick,
-            score,
-            country,
-            date: new Date().toISOString()
-          }).then(() => {
-            console.log('[RTDB] score saved ✔', nick, score, country);
-            // 필요 시 “점수 저장 완료/ Saved” 배지 업데이트는
-            // 기존 UI 함수가 있으면 거기서 처리 (이 블록은 UI 변경 X)
-          }).catch(console.warn);
-        }
-      } catch (e) {
-        console.warn('[RTDB] save failed', e);
-      }
-      return _endGame.apply(this, arguments);
-    };
+    rows.sort((a,b)=> (b.score-a.score) || (a.ts-b.ts));
+    // 기존 테이블 그리는 로직은 render()가 담당한다고 하셨으므로 rowsAll만 갱신
+    window.rowsAll = rows;
+    if (typeof window.render==='function') window.render();
+  }catch(e){
+    console.warn('[RTDB] load failed:', e);
   }
+}
 
-  // 실행
-  boot().catch(console.warn);
+/** 5) 상단 배지(연결 상태) — 기존 배지 id가 다르면 querySelector 수정만 */
+async function watchRTDBBadge(){
+  try{
+    const db = await ensureFirebaseReady();
+    const badge = document.querySelector('#firebase-badge'); // 없으면 무시
+    db.ref('.info/connected').on('value', s=>{
+      const ok = !!s.val();
+      if (!badge) return;
+      badge.textContent = ok ? 'Firebase 연결 OK / Connected — 점수 업로드 가능'
+                             : '랭킹 비활성 — Firebase 미연결';
+      badge.className = ok ? 'badge ok' : 'badge warn';
+    });
+  }catch(e){ console.warn('[RTDB] badge watch failed:', e); }
+}
+
+/** 6) endGame 패치: 기존 endGame 유지 + 저장 한 줄만 주입 */
+(function patchEndGameOnce(){
+  if (window.__patchedEndGame__) return; // 중복 방지
+  window.__patchedEndGame__ = true;
+
+  const _endGame = window.endGame || function(){};
+  window.endGame = function(){
+    try{
+      // (기존 스코어/오버레이 로직은 _endGame 내부에서 그대로 수행)
+      const nickEl = document.getElementById('nickname');              // 기존 입력창 id 유지
+      const scoreEl = document.getElementById('ui-score');             // 기존 점수 표시 id 유지
+      const nick   = (nickEl?.value || 'Guest').trim();
+      const score  = parseInt(scoreEl?.textContent || '0', 10) || 0;
+      const country= (window.activeCountry || 'KR').toUpperCase();
+
+      // RTDB 저장 1회
+      saveScoreToRTDB(nick, score, country);
+    }catch(e){
+      console.warn('[RTDB] endGame hook failed:', e);
+    }
+    // 원래 endGame 동작 호출(디자인/게임 로직 그대로)
+    return _endGame.apply(this, arguments);
+  };
 })();
+
+/** 7) 초기 1회: 배지 감시 + 기본 목록 로드 실행
+ *    - 주/월/국가 버튼에서 filter 만들어 loadScoresAndRender(filter)만 호출하세요.
+ */
+watchRTDBBadge();
+loadScoresAndRender({country:'ALL'}); // 최초 ALL
 </script>
+<!-- === RTDB 통합: END === -->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- (CSS, 게임 스타일, 기타 스크립트) -->
+</head>
+<body>
+  <!-- (게임 화면, 닉네임 입력, 점수판 등 HTML 구조) -->
+
+  <!-- (게임 관련 기존 JS 코드들: 테트리스 엔진, render(), etc.) -->
+
+  <!-- ✅ Firebase 랭킹 저장/로드 통합 블록 -->
+  <script>
+    (function () {
+      // 여기 제가 준 Firebase 연동/점수 저장 코드
+    })();
+  </script>
+</body>
+</html>
+
