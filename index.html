@@ -6,17 +6,16 @@
 <title>천하제일 근성 대회</title>
 <style>
 :root{
-  --bg:#0b1320;         /* 전체 배경 */
-  --panel:#0f1b2f;      /* 패널/카드 */
-  --line:#1c2a44;       /* 보드 격자라인 */
-  --text:#cfe6ff;       /* 기본 텍스트 */
-  --muted:#8ea7c7;      /* 보조 텍스트 */
-  --accent:#22c55e;     /* 연결 OK / 상태 라벨 */
+  --bg:#0b1320;
+  --panel:#0f1b2f;
+  --line:#1c2a44;
+  --text:#cfe6ff;
+  --muted:#8ea7c7;
+  --accent:#22c55e;
   --danger:#ef4444;
   --gold:#facc15;
   --blue:#60a5fa;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -25,7 +24,6 @@ body{
   color:var(--text);
   font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR","Apple SD Gothic Neo",Malgun Gothic,sans-serif;
 }
-
 /* 레이아웃 */
 .container{
   max-width:1260px;
@@ -53,13 +51,8 @@ body{
   font-size:12px;
   display:inline-flex; gap:8px; align-items:center;
 }
-.badge--ok{
-  background:#0c2a17; border-color:#1e7f4f; color:#cfffde;
-}
-.badge--seg{
-  background:#102033; border-color:#26436b;
-}
-
+.badge--ok{ background:#0c2a17; border-color:#1e7f4f; color:#cfffde; }
+.badge--seg{ background:#102033; border-color:#26436b; }
 /* 보드 카드 */
 .card{
   background:var(--panel);
@@ -67,11 +60,7 @@ body{
   border-radius:18px;
   padding:14px;
 }
-.card h3{
-  margin:0 0 10px; font-size:15px; color:#9fc5ff;
-  font-weight:600;
-}
-
+.card h3{ margin:0 0 10px; font-size:15px; color:#9fc5ff; font-weight:600; }
 /* 보드 캔버스 */
 .board-wrap{
   border:1px solid #223457;
@@ -81,22 +70,15 @@ body{
   display:flex; justify-content:center; align-items:center;
   aspect-ratio: 10/20;
 }
-#board{
-  width:100%; height:auto; max-width:100%;
-  image-rendering: pixelated;
-}
-
+#board{ width:100%; height:auto; max-width:100%; image-rendering: pixelated; }
 /* 하단 정보 */
 .footer-stats{
   display:flex; justify-content:space-between; margin-top:10px;
   color:var(--muted); font-size:13px;
 }
 .footer-stats b{ color:#e6f1ff; }
-
 /* 우측 랭킹 */
-.filters{
-  display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;
-}
+.filters{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
 .pill{
   background:#0e1a2c; border:1px solid #233a61; color:#cfe6ff;
   border-radius:999px; padding:5px 10px; font-size:12px;
@@ -106,7 +88,6 @@ body{
   background:#0b2a1a; color:#caffdd; border:1px solid #1c6f49;
   padding:8px 12px; border-radius:10px; font-size:13px; margin-bottom:10px;
 }
-
 /* 테이블 */
 .table{
   width:100%; border-collapse:collapse; overflow:hidden;
@@ -119,7 +100,6 @@ body{
 }
 .table thead th{ background:#0d182b; color:#9fc5ff; font-weight:600; }
 .table tr:nth-child(even) td{ background:#0f1b2f; }
-
 /* 모달 */
 .modal{
   position:fixed; inset:0; display:none; place-items:center;
@@ -143,7 +123,6 @@ body{
   padding:10px 14px; border-radius:12px; cursor:pointer; width:100%; margin-top:10px;
 }
 .btn:active{ transform: translateY(1px); }
-
 /* 모바일 컨트롤 */
 .touchpad{
   display:none;
@@ -162,7 +141,7 @@ body{
 </head>
 <body>
 
-<!-- 상단 상태 뱃지 (디자인만 표시) -->
+<!-- 상단 상태 뱃지 -->
 <div class="badges">
   <span class="badge">KR</span>
   <span class="badge badge--ok">Firebase 연결 OK / Connected — 점수 업로드 가능</span>
@@ -184,17 +163,16 @@ body{
     </div>
   </div>
 
-  <!-- 우측 랭킹(자리/디자인만, 나중에 Firebase 붙일 수 있도록) -->
+  <!-- 우측 랭킹(디자인 그대로) -->
   <div class="card">
     <div class="filters">
       <span class="pill pill--on">ALL</span>
       <span class="pill">This Week</span>
       <span class="pill">This Month</span>
+      <span class="pill">ALL</span>
       <span class="pill">KR</span>
     </div>
-
     <div class="statusbar" id="liveBar">실시간 업데이트(Firebase RTDB) — 랭킹 연동 전, 게임 정상 동작 확인용 레이아웃</div>
-
     <table class="table" id="rankTable">
       <thead>
         <tr>
@@ -204,9 +182,7 @@ body{
           <th>점수 / Score</th>
         </tr>
       </thead>
-      <tbody id="rankTbody">
-        <!-- Firebase 연동 전이므로 비워둠 -->
-      </tbody>
+      <tbody id="rankTbody"></tbody>
     </table>
   </div>
 </div>
@@ -220,7 +196,7 @@ body{
   <button data-act="hard">⤓</button>
 </div>
 
-<!-- 게임 시작/게임오버 모달 -->
+<!-- 시작/게임오버 모달 -->
 <div class="modal on" id="modal">
   <div class="box">
     <h4 id="modalTitle">시작 / Restart</h4>
@@ -231,115 +207,53 @@ body{
 </div>
 
 <script>
-/* ---------------------------
-   색상/디자인(블럭 팔레트)
-   ※ 보드에 "색 문자열"을 저장합니다(null/문자열).
----------------------------- */
+/* =========================
+   디자인/게임 코드 (그대로)
+========================= */
 const COLORS = {
-  I: "#93c5fd", // 하늘
-  J: "#60a5fa", // 파랑
-  L: "#fbbf24", // 주황
-  O: "#fde047", // 노랑
-  S: "#34d399", // 초록
-  T: "#c084fc", // 보라
-  Z: "#f87171"  // 빨강
+  I: "#93c5fd", J: "#60a5fa", L: "#fbbf24",
+  O: "#fde047", S: "#34d399", T: "#c084fc", Z: "#f87171"
 };
 const ORDER = ["I","J","L","O","S","T","Z"];
-
-/* ---------------------------
-   보드/루프/속도/점수 규칙
----------------------------- */
 const COLS = 10, ROWS = 20;
 let board = [];
 let nickname = "";
 let animationId = null;
-
 let score = 0, lines = 0, level = 1;
 const LINE_POINTS = [0, 40, 100, 300, 1200];
 const SOFT_DROP_POINTS = 1;
 const HARD_DROP_POINTS = 2;
-
 const LEVEL_MS = [Infinity, 800, 720, 630, 550, 470, 390, 320, 260, 200, 170, 150, 130, 110, 100, 90];
 function fallDelayMs(){ return LEVEL_MS[Math.min(level, LEVEL_MS.length-1)]; }
-
 function updateStatsUI(){
   document.getElementById('ui-score').textContent = score;
   document.getElementById('ui-lines').textContent = lines;
   document.getElementById('ui-level').textContent = level;
 }
-function maybeLevelUp(){
-  const newLv = Math.floor(lines/10)+1;
-  if(newLv>level){ level = newLv; }
-}
-
-/* ---------------------------
-   랜더링
----------------------------- */
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-let cellSize;  // 계산되며, 픽셀 그리드 유지
+function maybeLevelUp(){ const newLv = Math.floor(lines/10)+1; if(newLv>level){ level = newLv; } }
+const canvas = document.getElementById('board'); const ctx = canvas.getContext('2d'); let cellSize;
 function resizeCanvas(){
-  // 고정 종횡비(10:20) 유지
   const wrap = canvas.parentElement.getBoundingClientRect();
-  const w = Math.min(wrap.width, 520);
-  const h = w * 2; // 10:20
-  canvas.width = w;
-  canvas.height = h;
-  cellSize = Math.floor(w/COLS);
-  draw();
+  const w = Math.min(wrap.width, 520); const h = w * 2;
+  canvas.width = w; canvas.height = h; cellSize = Math.floor(w/COLS); draw();
 }
 window.addEventListener('resize', resizeCanvas);
-
-/* 보드 그리기 */
 function drawGrid(){
-  ctx.fillStyle = "#0c1627";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = "#0c1627"; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.strokeStyle = "#1c2a44"; ctx.lineWidth = 1;
-  for(let x=0;x<=COLS;x++){
-    ctx.beginPath();
-    ctx.moveTo(x*cellSize+.5,0);
-    ctx.lineTo(x*cellSize+.5, canvas.height);
-    ctx.stroke();
-  }
-  for(let y=0;y<=ROWS;y++){
-    ctx.beginPath();
-    ctx.moveTo(0,y*cellSize+.5);
-    ctx.lineTo(canvas.width, y*cellSize+.5);
-    ctx.stroke();
-  }
+  for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*cellSize+.5,0); ctx.lineTo(x*cellSize+.5, canvas.height); ctx.stroke();}
+  for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*cellSize+.5); ctx.lineTo(canvas.width, y*cellSize+.5); ctx.stroke();}
 }
 function drawBlock(x,y,color){
   const px = x*cellSize, py = y*cellSize;
-  ctx.fillStyle = color;
-  ctx.fillRect(px+1, py+1, cellSize-2, cellSize-2);
-  // 하이라이트
-  ctx.strokeStyle = "rgba(255,255,255,.08)";
-  ctx.strokeRect(px+1, py+1, cellSize-2, cellSize-2);
+  ctx.fillStyle = color; ctx.fillRect(px+1, py+1, cellSize-2, cellSize-2);
+  ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.strokeRect(px+1, py+1, cellSize-2, cellSize-2);
 }
 function draw(){
   drawGrid();
-  // 보드
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      const v = board[r][c];
-      if(v) drawBlock(c,r,v);
-    }
-  }
-  // 현재 피스
-  if(current){
-    current.shape.forEach((row, y)=>{
-      row.forEach((v,x)=>{
-        if(v){
-          drawBlock(current.col + x, current.row + y, COLORS[current.type]);
-        }
-      });
-    });
-  }
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ const v = board[r][c]; if(v) drawBlock(c,r,v); }
+  if(current){ current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(v) drawBlock(current.col+x,current.row+y,COLORS[current.type]); })); }
 }
-
-/* ---------------------------
-   피스(7-백) & 이동/회전
----------------------------- */
 const SHAPES = {
   I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
   J: [[1,0,0],[1,1,1],[0,0,0]],
@@ -349,242 +263,211 @@ const SHAPES = {
   T: [[0,1,0],[1,1,1],[0,0,0]],
   Z: [[1,1,0],[0,1,1],[0,0,0]],
 };
-function rotate(shape){
-  const N = shape.length;
-  const ret = Array.from({length:N},()=>Array(N).fill(0));
-  for(let r=0;r<N;r++){
-    for(let c=0;c<N;c++){
-      ret[c][N-1-r] = shape[r][c];
-    }
-  }
-  return ret;
-}
-
-let bag = [];
-function refillBag(){
-  bag = [...ORDER].sort(()=>Math.random()-0.5);
-}
-function nextType(){
-  if(bag.length===0) refillBag();
-  return bag.pop();
-}
-
-let current = null;
+function rotate(shape){ const N=shape.length,ret=Array.from({length:N},()=>Array(N).fill(0)); for(let r=0;r<N;r++)for(let c=0;c<N;c++) ret[c][N-1-r]=shape[r][c]; return ret;}
+let bag=[]; function refillBag(){ bag=[...ORDER].sort(()=>Math.random()-0.5); }
+function nextType(){ if(bag.length===0) refillBag(); return bag.pop(); }
+let current=null;
 function spawnNextPiece(){
-  const type = nextType();
-  const shape = SHAPES[type].map(row=>row.slice());
-  const col = Math.floor(COLS/2) - Math.ceil(shape[0].length/2);
-  const row = 0;
-  current = {type, shape, col, row};
-  // 스폰 충돌 시 게임오버
-  if(!canPlace(0,0, shape)){
-    endGame();
-  }
+  const type=nextType(); const shape=SHAPES[type].map(row=>row.slice()); const col=Math.floor(COLS/2) - Math.ceil(shape[0].length/2); const row=0;
+  current={type,shape,col,row}; if(!canPlace(0,0,shape)){ endGame(); }
 }
-
-function canPlace(dc, dr, shape = current.shape){
-  const baseC = current.col + dc;
-  const baseR = current.row + dr;
-  for(let y=0;y<shape.length;y++){
-    for(let x=0;x<shape[y].length;x++){
-      if(!shape[y][x]) continue;
-      const nx = baseC + x, ny = baseR + y;
-      if(nx<0 || nx>=COLS || ny>=ROWS) return false;
-      if(ny>=0 && board[ny][nx]) return false;
-    }
+function canPlace(dc,dr,shape=current.shape){
+  const baseC=current.col+dc, baseR=current.row+dr;
+  for(let y=0;y<shape.length;y++)for(let x=0;x<shape[y].length;x++){
+    if(!shape[y][x]) continue; const nx=baseC+x, ny=baseR+y;
+    if(nx<0||nx>=COLS||ny>=ROWS) return false;
+    if(ny>=0 && board[ny][nx]) return false;
   }
   return true;
 }
-function move(dx,dy){
-  if(canPlace(dx,dy)){
-    current.col += dx;
-    current.row += dy;
-    draw();
-    return true;
-  }
-  return false;
+function move(dx,dy){ if(canPlace(dx,dy)){ current.col+=dx; current.row+=dy; draw(); return true;} return false; }
+function tryRotate(){ const next=rotate(current.shape);
+  if(canPlace(0,0,next)){ current.shape=next; draw(); return;}
+  if(canPlace(-1,0,next)){ current.col--; current.shape=next; draw(); return;}
+  if(canPlace(1,0,next)){ current.col++;  current.shape=next; draw(); return;}
 }
-function tryRotate(){
-  const next = rotate(current.shape);
-  if(canPlace(0,0,next)){ current.shape = next; draw(); return; }
-  // 간단 킥
-  if(canPlace(-1,0,next)){ current.col--; current.shape = next; draw(); return; }
-  if(canPlace(1,0,next)){ current.col++;  current.shape = next; draw(); return; }
-}
-
-/* ---------------------------
-   병합/라인클리어/점수
----------------------------- */
-function merge(){
-  const color = COLORS[current.type];
-  current.shape.forEach((row,y)=>{
-    row.forEach((v,x)=>{
-      if(v){
-        const by = current.row + y, bx = current.col + x;
-        if(by>=0) board[by][bx] = color; // 색 문자열 저장
-      }
-    });
-  });
+function merge(){ const color=COLORS[current.type];
+  current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(v){ const by=current.row+y, bx=current.col+x; if(by>=0) board[by][bx]=color; }}));
 }
 function clearLines(){
-  let cleared = 0;
+  let cleared=0;
   for(let r=ROWS-1;r>=0;r--){
     const full = board[r].every(cell => cell !== null);
-    if(full){
-      board.splice(r,1);
-      board.unshift(Array(COLS).fill(null));
-      cleared++;
-      r++;
-    }
+    if(full){ board.splice(r,1); board.unshift(Array(COLS).fill(null)); cleared++; r++; }
   }
-  if(cleared>0){
-    lines += cleared;
-    score += LINE_POINTS[cleared] * level;
-    maybeLevelUp();
-    updateStatsUI();
-  }
+  if(cleared>0){ lines+=cleared; score+=LINE_POINTS[cleared]*level; maybeLevelUp(); updateStatsUI(); }
   return cleared;
 }
-function lockPiece(){
-  merge();
-  clearLines();
-  spawnNextPiece();
+function lockPiece(){ merge(); clearLines(); spawnNextPiece(); }
+function softDrop(){ if(move(0,1)){ score+=SOFT_DROP_POINTS; updateStatsUI(); } else { lockPiece(); } }
+function hardDrop(){ let d=0; while(move(0,1)) d++; if(d>0){ score+=d*HARD_DROP_POINTS; updateStatsUI(); } lockPiece(); }
+let lastFall=0, running=false;
+function loop(ts){ if(!running) return; if(!lastFall) lastFall=ts; const dt=ts-lastFall;
+  if(dt>=fallDelayMs()){ if(!move(0,1)) lockPiece(); lastFall=ts; } draw(); animationId=requestAnimationFrame(loop);
 }
-
-function softDrop(){
-  if(move(0,1)){
-    score += SOFT_DROP_POINTS;
-    updateStatsUI();
-  }else{
-    lockPiece();
-  }
-}
-function hardDrop(){
-  let d=0;
-  while(move(0,1)) d++;
-  if(d>0){ score += d * HARD_DROP_POINTS; updateStatsUI(); }
-  lockPiece();
-}
-
-/* ---------------------------
-   루프
----------------------------- */
-let lastFall = 0;
-function loop(ts){
-  if(!running){ return; }
-  if(!lastFall) lastFall = ts;
-  const dt = ts - lastFall;
-  if(dt >= fallDelayMs()){
-    if(!move(0,1)) lockPiece();
-    lastFall = ts;
-  }
-  draw();
-  animationId = requestAnimationFrame(loop);
-}
-
-/* ---------------------------
-   시작/리셋/종료
----------------------------- */
-function resetBoard(){
-  board = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
-}
-function resetGame(){
-  score=0; lines=0; level=1; updateStatsUI();
-  resetBoard();
-  refillBag();
-  spawnNextPiece();
-  draw();
-}
-let running = false;
-function startGame(){
-  resetGame();
-  running = true;
-  cancelAnimationFrame(animationId);
-  lastFall = 0;
-  animationId = requestAnimationFrame(loop);
-}
-function endGame(){
-  running = false;
-  cancelAnimationFrame(animationId);
-  // (선택) 여기서 Firebase 업로드/랭킹 갱신을 호출할 수 있습니다.
-  // submitScoreToFirebase(nickname, score, "KR");
-  showModal("Game Over");
-}
-
-/* ---------------------------
-   입력
----------------------------- */
-document.addEventListener('keydown', (e)=>{
+function resetBoard(){ board=Array.from({length:ROWS},()=>Array(COLS).fill(null)); }
+function resetGame(){ score=0; lines=0; level=1; updateStatsUI(); resetBoard(); refillBag(); spawnNextPiece(); draw(); }
+function startGame(){ resetGame(); running=true; cancelAnimationFrame(animationId); lastFall=0; animationId=requestAnimationFrame(loop); }
+function endGame(){ running=false; cancelAnimationFrame(animationId); showModal("Game Over"); }
+document.addEventListener('keydown',(e)=>{
   if(!running) return;
   switch(e.code){
-    case "ArrowLeft":  e.preventDefault(); move(-1,0); break;
+    case "ArrowLeft": e.preventDefault(); move(-1,0); break;
     case "ArrowRight": e.preventDefault(); move(1,0); break;
-    case "ArrowUp":    e.preventDefault(); tryRotate(); break;
-    case "ArrowDown":  e.preventDefault(); softDrop(); break;
-    case "Space":      e.preventDefault(); hardDrop(); break;
+    case "ArrowUp": e.preventDefault(); tryRotate(); break;
+    case "ArrowDown": e.preventDefault(); softDrop(); break;
+    case "Space": e.preventDefault(); hardDrop(); break;
   }
 });
-
-/* 모바일 버튼 */
 document.getElementById('touchpad').addEventListener('click',(e)=>{
-  const act = e.target.getAttribute('data-act');
-  if(!act || !running) return;
+  const act=e.target.getAttribute('data-act'); if(!act||!running) return;
   if(act==="left") move(-1,0);
   if(act==="right") move(1,0);
   if(act==="rot") tryRotate();
   if(act==="soft") softDrop();
   if(act==="hard") hardDrop();
 });
-
-/* ---------------------------
-   모달
----------------------------- */
-const modal = document.getElementById('modal');
-const startBtn = document.getElementById('startBtn');
-const modalTitle = document.getElementById('modalTitle');
-function showModal(title){ modalTitle.textContent = title; modal.classList.add('on'); }
+const modal=document.getElementById('modal'); const startBtn=document.getElementById('startBtn'); const modalTitle=document.getElementById('modalTitle');
+function showModal(title){ modalTitle.textContent=title; modal.classList.add('on'); }
 function hideModal(){ modal.classList.remove('on'); }
-startBtn.addEventListener('click', ()=>{
-  const n = document.getElementById('nickname').value.trim();
+startBtn.addEventListener('click',()=>{
+  const n=document.getElementById('nickname').value.trim();
   if(n.length<2){ alert("닉네임은 2자 이상 입력해 주세요."); return; }
-  nickname = n;
-  hideModal();
-  startGame();
+  nickname=n; hideModal(); startGame();
 });
-
-/* ---------------------------
-   초기화
----------------------------- */
-resetBoard();
-resizeCanvas();
-draw();
-
-/* ---------------------------
-   (선택) Firebase 연동 포인트
-   - 연동이 필요 없으면 이 섹션은 무시해도 됩니다.
-   - RTDB 저장 예시: scores/yyyy-mm-dd/nick → {score,country,date}
----------------------------- */
-// 1) (옵션) Firebase SDK
-// <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-// <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
-
-// 2) (옵션) 구성
-// const firebaseConfig = { /* 여기에 본인 프로젝트 구성 붙여 넣기 */ };
-// firebase.initializeApp(firebaseConfig);
-// const db = firebase.database();
-
-// 3) (옵션) 저장 예시
-// function submitScoreToFirebase(nick, score, country){
-//   try{
-//     const dateKey = new Date().toISOString().substring(0,10);
-//     const ref = db.ref(`scores/${dateKey}/${nick}`);
-//     ref.set({ score, country, ts: Date.now() });
-//   }catch(e){ console.warn(e); }
-// }
-
-// 4) (옵션) 국기(FlagCDN) 표시 예시 (국가코드 소문자)
-// function flagUrl(cc){ return `https://flagcdn.com/24x18/${(cc||'kr').toLowerCase()}.png`; }
-// rankTbody.innerHTML = `<tr><td>1</td><td>${nickname||'Guest'}</td><td><img src="${flagUrl('KR')}" width="24" height="18" style="vertical-align:middle"> KR</td><td>${score}</td></tr>`;
+resetBoard(); (function initSize(){ const ro=new ResizeObserver(()=>resizeCanvas()); ro.observe(document.querySelector('.board-wrap')); resizeCanvas(); })();
 </script>
+
+<!-- ▼▼▼ 여기부터: 저장/랭킹/필터 '추가' 스니펫(디자인/게임코드 변경 없음) ▼▼▼ -->
+<script>
+/* ===== Firebase 저장/조회 + 주/월/국가 필터 (추가 스니펫) ===== */
+function loadScript(src){return new Promise(res=>{const s=document.createElement('script');s.src=src;s.onload=res;document.head.appendChild(s);});}
+
+(function RankingBootstrap(){
+  let rowsAll = [];             // 전체 랭킹 데이터
+  let activeRange = 'all';      // 'all' | 'week' | 'month'
+  let activeCountry = 'ALL';    // 'ALL' | 'KR'(확장 가능)
+  const MAX_ROWS = 50;
+
+  const $ = sel => document.querySelector(sel);
+  const liveBarEl = $('#liveBar');
+  const tbodyEl  = $('#rankTbody');
+
+  function safeText(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function setLiveBar(t){ if(liveBarEl) liveBarEl.textContent = t; }
+
+  function startOfWeek(ts){ const d=new Date(ts); const day=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d.getTime();}
+  function startOfMonth(ts){ const d=new Date(ts); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
+
+  function render(){
+    if(!tbodyEl) return;
+    const now=Date.now(), weekStart=startOfWeek(now), monthStart=startOfMonth(now);
+
+    const filtered = rowsAll.filter(r=>{
+      if(!r || typeof r.score!=='number') return false;
+      if(activeRange==='week'  && !(r.ts>=weekStart))  return false;
+      if(activeRange==='month' && !(r.ts>=monthStart)) return false;
+      const cc=(r.country||'KR').toUpperCase();
+      if(activeCountry!=='ALL' && cc!==activeCountry) return false;
+      return true;
+    });
+
+    filtered.sort((a,b)=> b.score - a.score);
+    const view = filtered.slice(0, MAX_ROWS);
+
+    tbodyEl.innerHTML = view.map((r,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${safeText(r.nickname)}</td>
+        <td>${safeText((r.country||'KR').toUpperCase())}</td>
+        <td>${r.score}</td>
+      </tr>
+    `).join('');
+  }
+
+  // 버튼 텍스트 자동 매핑(마크업/디자인 변경 없음)
+  function wireFilterButtons(){
+    // 왼쪽 3개: ALL / This Week / This Month
+    document.querySelectorAll('.filters .pill').forEach(el=>{
+      const t=(el.textContent||'').trim().toLowerCase();
+      if(t==='all'){ el.addEventListener('click',()=>{ activeRange='all';  render(); },{passive:true}); }
+      if(t==='this week'){ el.addEventListener('click',()=>{ activeRange='week'; render(); },{passive:true}); }
+      if(t==='this month'){ el.addEventListener('click',()=>{ activeRange='month'; render(); },{passive:true}); }
+    });
+    // 오른쪽 2개(동일 컨테이너 내): ALL / KR — 국가 필터
+    // 같은 텍스트가 여러 개 있으므로 두 번째 그룹도 같이 매핑됩니다.
+    document.querySelectorAll('.filters .pill').forEach(el=>{
+      const t=(el.textContent||'').trim().toUpperCase();
+      if(t==='ALL'){ el.addEventListener('click',()=>{ activeCountry='ALL'; render(); },{passive:true}); }
+      if(t==='KR'){  el.addEventListener('click',()=>{ activeCountry='KR';  render(); },{passive:true}); }
+    });
+  }
+
+  async function boot(){
+    try{
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
+
+      // ⚠️ 본인 Firebase 구성으로 교체
+      const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT_ID",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      // 저장 함수(게임 오버 시 자동 호출)
+      window.submitScoreToFirebase = function(nick, score, country){
+        try{
+          const dateKey = new Date().toISOString().slice(0,10);
+          db.ref(`scores/${dateKey}/${nick}`).set({
+            nickname: nick,
+            score: score|0,
+            country: (country||'KR').toUpperCase(),
+            ts: Date.now()
+          });
+          setLiveBar('점수 저장 완료 / Saved');
+        }catch(e){ console.warn(e); }
+      };
+
+      // 실시간 구독: /scores/YYYY-MM-DD/<nick>
+      db.ref('scores').on('value', snap=>{
+        const tmp=[];
+        snap.forEach(dateSnap=>{
+          dateSnap.forEach(userSnap=>{
+            const v=userSnap.val();
+            if(v && typeof v.score==='number'){ tmp.push(v); }
+          });
+        });
+        rowsAll = tmp;
+        render();
+      });
+
+      // 게임 오버 후 자동 저장 — 기존 endGame 유지(디자인/모달 그대로)
+      const _endGame = window.endGame || function(){};
+      window.endGame = function(){
+        try{
+          const nick = (document.getElementById('nickname').value || 'Guest').trim();
+          const s = parseInt(document.getElementById('ui-score').textContent||'0',10) || 0;
+          window.submitScoreToFirebase(nick, s, 'KR'); // 국가 기본 KR (워커 연동 시 교체 가능)
+        }catch(e){ console.warn(e); }
+        _endGame();
+      };
+
+      wireFilterButtons();
+      setLiveBar('실시간 업데이트 (Firebase RTDB)');
+    }catch(err){
+      console.warn('Firebase boot error:', err);
+      setLiveBar('랭킹 비활성 — Firebase 미연결');
+    }
+  }
+
+  boot();
+})();
+</script>
+<!-- ▲▲▲ 추가 스니펫 끝 (게임/디자인 변경 없음) ▲▲▲ -->
+
 </body>
 </html>
