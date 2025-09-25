@@ -1,376 +1,149 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Grit Championship — Tetris</title>
+<!-- === RTDB 통합: START (붙여넣기 전용 / 디자인·게임 로직 무변경) === -->
+<script>
+/** 0) 동적 스크립트 로더 (중복 로드 방지) */
+function loadScriptOnce(src){
+  return new Promise((resolve,reject)=>{
+    if([...(document.scripts||[])].some(s=>s.src===src)) return resolve();
+    const s=document.createElement('script');
+    s.src=src; s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
 
-  <!-- =========================
-       KEEP YOUR EXISTING STYLES
-       디자인/색상/폰트/레이아웃 절대 변경 금지
-       아래 링크 또는 <style> 안의 내용을 기존 그대로 유지하세요.
-  ========================== -->
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- 예시: <link rel="stylesheet" href="./styles.css"> -->
-  <style>
-    /* [KEEP YOUR EXISTING CSS HERE]
-       이 블록은 기존 CSS 복사-붙여넣기 자리입니다.
-       ★ 절대 디자인 변경 금지 요청에 따라 아무 것도 추가/삭제하지 않습니다. */
+/** 1) Firebase SDK 로드 + 초기화 */
+async function ensureFirebaseReady(){
+  // compat SDK (현재 코드와 궁합 ↑)
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
 
-    /* 모바일 조작키가 항상 보이도록(요구사항 유지) — 기존에 동일 로직이 있으면 그대로 두세요 */
-    .mobile-controls { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
-    .mobile-controls button { touch-action: manipulation; }
-    /* 랭킹/국기 아이콘 표시용 최소 유틸 (디자인 영향 없는 범위) */
-    .rank-flags { display: inline-flex; align-items: center; gap: 6px; }
-    .flag { width: 18px; height: 12px; object-fit: cover; border: 1px solid rgba(0,0,0,.06); }
-    .hidden { display: none !important; }
-  </style>
-</head>
-<body>
+  // ❗❗ 여기에 "Firebase 콘솔 > 프로젝트 설정 > 웹 앱"의 값을 그대로 붙여 넣으세요.
+  //    (이미 붙여 넣으셨다면 아래 값 유지)
+  window.firebaseConfig = window.firebaseConfig || {
+    apiKey: "PASTE_YOUR_apiKey",
+    authDomain: "PASTE_YOUR_authDomain",
+    databaseURL: "PASTE_YOUR_databaseURL",   // ← 이 값이 비어 있으면 RTDB 연결이 안 됩니다.
+    projectId: "PASTE_YOUR_projectId",
+    storageBucket: "PASTE_YOUR_storageBucket",
+    messagingSenderId: "PASTE_YOUR_messagingSenderId",
+    appId: "PASTE_YOUR_appId",
+    measurementId: "PASTE_YOUR_measurementId"
+  };
 
-  <!-- =========================
-       KEEP YOUR EXISTING GAME UI
-       게임 캔버스/점수/라인/레벨 UI 그대로 유지
-  ========================== -->
-  <div id="app">
-    <!-- 예시 구조: 실제로는 기존 마크업을 그대로 복붙하세요 -->
-    <header id="game-header">
-      <h1 class="sr-only">Grit Championship — Tetris</h1>
-      <div id="score-panel">
-        <span>Score: <strong id="score">0</strong></span>
-        <span>Lines: <strong id="lines">0</strong></span>
-        <span>Level: <strong id="level">1</strong></span>
-      </div>
-    </header>
+  if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+  return firebase.database();
+}
 
-    <main id="game-area">
-      <!-- 게임 캔버스/그리드 -->
-      <canvas id="game-canvas" width="240" height="480"></canvas>
+/** 2) 유틸(키/날짜) — RTDB 키 금지문자 처리 */
+function safeKey(str=''){
+  return String(str).replace(/[.#$\[\]]/g,'_').trim().slice(0,30) || 'Guest';
+}
+function ymd(d=new Date()){
+  // 로컬 → UTC 보정(날짜 경계 오차 방지)
+  return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
 
-      <!-- 모바일 컨트롤 (항상 표시) -->
-      <div class="mobile-controls" id="mobile-controls">
-        <button id="btn-left" aria-label="left">◀</button>
-        <button id="btn-rotate" aria-label="rotate">⟳</button>
-        <button id="btn-right" aria-label="right">▶</button>
-        <button id="btn-down" aria-label="down">▼</button>
-        <button id="btn-drop" aria-label="hard-drop">⤓</button>
-      </div>
-    </main>
+/** 3) 저장: 게임 종료시 1회 호출 */
+async function saveScoreToRTDB(nickname, score, countryCode){
+  try{
+    const db = await ensureFirebaseReady();
+    const dateKey = ymd();
+    const nickKey = safeKey(nickname);
+    const path = `scores/${dateKey}/${nickKey}`;
 
-    <!-- Game Over 팝업 (닉입력/점수표시/시작버튼) — 기존 마크업을 유지하세요 -->
-    <dialog id="gameover-dialog">
-      <form id="gameover-form" method="dialog">
-        <h2>Game Over</h2>
-        <p>이번 점수: <strong id="finalScoreText">0</strong></p>
-        <label>닉네임
-          <input id="nicknameInput" name="nickname" placeholder="닉네임" maxlength="20" required />
-        </label>
-        <menu>
-          <button value="cancel" id="btn-cancel">취소</button>
-          <button id="btn-restart" value="default">다시 시작</button>
-        </menu>
-      </form>
-    </dialog>
-
-    <!-- 랭킹 섹션 -->
-    <section id="ranking">
-      <h2>랭킹</h2>
-
-      <!-- 필터: 전체/주간/월간, 국가(ALL/KR) -->
-      <div id="rank-filters">
-        <fieldset>
-          <legend>기간</legend>
-          <label><input type="radio" name="range" value="all" checked> 전체</label>
-          <label><input type="radio" name="range" value="week"> 주간</label>
-          <label><input type="radio" name="range" value="month"> 월간</label>
-        </fieldset>
-        <fieldset>
-          <legend>국가</legend>
-          <select id="country-filter" aria-label="국가 필터">
-            <option value="ALL" selected>ALL</option>
-            <option value="KR">KR</option>
-          </select>
-        </fieldset>
-      </div>
-
-      <ol id="rank-list"></ol>
-    </section>
-  </div>
-
-  <!-- =========================
-       KEEP YOUR EXISTING GAME LOGIC
-       (테트로미노/충돌/점수/레벨/라인 클리어 등)
-       아래 스크립트 자리에 기존 게임 코드 그대로 넣으세요.
-       ★ 게임 기능/디자인 변경 금지
-  ========================== -->
-  <script>
-    /* [KEEP YOUR EXISTING GAME LOGIC HERE]
-       - 점수, 라인, 레벨 업데이트는 기존대로 DOM에 갱신
-       - 게임 종료 시 반드시 아래 함수를 호출하세요:
-         window.onGameOver(finalScore);
-    */
-
-    // 예시(참고용): 실 코드로 대체하세요.
-    window.startGame = function startGame() {
-      // ... 기존 시작 로직
-    };
-    // 모바일 버튼 → 기존 이동/회전 핸들러에 바인딩 (ID는 유지)
-    document.getElementById('btn-left')?.addEventListener('click', () => window.gameLeft && window.gameLeft());
-    document.getElementById('btn-right')?.addEventListener('click', () => window.gameRight && window.gameRight());
-    document.getElementById('btn-rotate')?.addEventListener('click', () => window.gameRotate && window.gameRotate());
-    document.getElementById('btn-down')?.addEventListener('click', () => window.gameSoftDrop && window.gameSoftDrop());
-    document.getElementById('btn-drop')?.addEventListener('click', () => window.gameHardDrop && window.gameHardDrop());
-  </script>
-
-  <!-- =========================
-       Firebase (Modular CDN) + 랭킹 로직
-       - firebaseConfig가 비어있으면 DB 기능 자동 비활성화 (빈 화면 방지)
-       - 기존 디자인/게임 로직은 손대지 않음
-  ========================== -->
-  <!-- Firebase SDKs (모듈형) -->
-  <script type="module">
-    // ---- 1) Firebase SDK Import (v11 CDN) ----
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, set, get, query, orderByChild, limitToFirst, startAt, endAt } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-
-    // ---- 2) 반드시 실제 값으로 교체 ----
-    // Firebase 콘솔에서 제공된 설정값을 아래에 그대로 붙여넣으세요.
-    // 예: const firebaseConfig = { apiKey: "...", authDomain: "...", ... };
-    const firebaseConfig = /* <<< REPLACE WITH YOUR REAL CONFIG >>> */ null;
-
-    // ---- 3) 공용 유틸 ----
-    const isValidConfig = cfg =>
-      !!cfg && typeof cfg === "object" &&
-      ["apiKey","authDomain","projectId","storageBucket","messagingSenderId","appId","databaseURL"].every(k => k in cfg);
-
-    const today = new Date();
-    const pad2 = n => String(n).padStart(2,"0");
-    const y = today.getFullYear();
-    const m = pad2(today.getMonth()+1);
-    const d = pad2(today.getDate());
-
-    // 간단 국가코드 추정(기본 KR, 필요 시 GeoIP로 대체 가능)
-    const DEFAULT_COUNTRY = "KR";
-
-    // ---- 4) Firebase 초기화 (안전 가드) ----
-    let app = null, db = null, dbEnabled = false;
-    try {
-      if (isValidConfig(firebaseConfig)) {
-        app = initializeApp(firebaseConfig);
-        db = getDatabase(app);
-        dbEnabled = true;
-        console.log("[Firebase] initialized");
-      } else {
-        console.warn("[Firebase] firebaseConfig 미설정. DB 기능 비활성화 상태로 실행됩니다.");
-      }
-    } catch (e) {
-      console.error("[Firebase] 초기화 실패:", e);
-      dbEnabled = false;
-    }
-
-    // ---- 5) Game Over 핸들러 (게임 로직에서 호출) ----
-    const $dialog = document.getElementById("gameover-dialog");
-    const $finalScoreText = document.getElementById("finalScoreText");
-    const $form = document.getElementById("gameover-form");
-    const $nickname = document.getElementById("nicknameInput");
-    const $btnRestart = document.getElementById("btn-restart");
-
-    let lastScore = 0;
-
-    window.onGameOver = function onGameOver(score) {
-      try {
-        lastScore = Number(score) || 0;
-        if ($finalScoreText) $finalScoreText.textContent = String(lastScore);
-        if ($dialog && typeof $dialog.showModal === "function") $dialog.showModal();
-      } catch (e) {
-        console.error("[UI] GameOver 표시 실패:", e);
-      }
-    };
-
-    // ---- 6) 점수 업로드 (닉네임+날짜 중복 방지 구조) ----
-    async function uploadScore({ nickname, score, country=DEFAULT_COUNTRY }) {
-      if (!dbEnabled) return { ok:false, reason:"DB_DISABLED" };
-      if (!nickname) return { ok:false, reason:"NO_NICK" };
-
-      // 날짜 단위 버킷 + 닉네임_타임스탬프 (동일닉/동일일 중복 방지 + unique key)
-      const ts = Date.now();
-      const dateKey = `${y}/${m}/${d}`;
-      const safeNick = nickname.replace(/[.#$\[\]]/g,"_").trim().slice(0,20);
-      const key = `${safeNick}_${ts}`;
-      const path = `scores/${dateKey}/${key}`;
-
-      const payload = {
-        nickname: safeNick,
-        score: Number(score)||0,
-        country: country || "ALL",
-        ts,
-        ym: `${y}-${m}`,      // 월간 필터용
-        yw: getYearWeek(ts),  // 주간 필터용 (예: 2025-W39)
-      };
-
-      try {
-        await set(ref(db, path), payload);
-        return { ok:true, path };
-      } catch (e) {
-        console.error("[DB] 업로드 실패:", e);
-        return { ok:false, reason:"SET_FAIL" };
-      }
-    }
-
-    // ISO 주차(간단 버전)
-    function getYearWeek(timeMs) {
-      const t = new Date(timeMs);
-      const temp = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
-      // 목요일 기준 ISO week
-      const dayNum = (temp.getUTCDay() + 6) % 7;
-      temp.setUTCDate(temp.getUTCDate() - dayNum + 3);
-      const firstThursday = new Date(Date.UTC(temp.getUTCFullYear(),0,4));
-      const week = 1 + Math.round(((temp - firstThursday) / 86400000 - 3) / 7);
-      return `${temp.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
-    }
-
-    // ---- 7) 폼 제출 → 업로드 → 재시작 ----
-    $form?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const nickname = ($nickname?.value || "").trim();
-      const country = (document.getElementById("country-filter")?.value === "KR") ? "KR" : "ALL";
-      if (!nickname) { $nickname?.focus(); return; }
-
-      // 업로드 (DB 미설정이면 건너뛰고 바로 재시작)
-      if (dbEnabled) {
-        const res = await uploadScore({ nickname, score: lastScore, country });
-        if (!res.ok) {
-          console.warn("[DB] 업로드 생략/실패:", res.reason);
-        }
-      }
-
-      try { $dialog?.close?.(); } catch {}
-      try { window.startGame && window.startGame(); } catch (e) { console.error("재시작 실패:", e); }
+    await db.ref(path).set({
+      score: Number(score)||0,
+      country: (countryCode||'KR').toUpperCase(),
+      ts: Date.now()
     });
+    console.log('[RTDB] saved:', path);
+  }catch(e){
+    console.warn('[RTDB] save failed:', e);
+  }
+}
 
-    // ---- 8) 랭킹 로딩 ----
-    const $rankList = document.getElementById("rank-list");
-    const $country = document.getElementById("country-filter");
-    const rangeRadios = Array.from(document.querySelectorAll('input[name="range"]'));
+/** 4) 읽기: 리스트 렌더 자료 rowsAll 생성(기존 render()는 그대로 사용) */
+async function loadScoresAndRender(filter){
+  try{
+    const db = await ensureFirebaseReady();
+    const snap = await db.ref('scores').get();
+    const rows=[];
 
-    async function loadRanking() {
-      if (!dbEnabled) {
-        // DB 비활성 시 안내만, UI는 유지
-        renderRankings([]);
-        return;
-      }
-      const range = (rangeRadios.find(r=>r.checked)?.value) || "all";
-      const countrySel = $country?.value || "ALL";
+    const wk = filter?.weekRange;   // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'}
+    const month = filter?.month;    // 'YYYY-MM'
+    const country = (filter?.country||'ALL').toUpperCase();
 
-      // 범위에 따른 인덱스/키
-      // 데이터 구조: scores/yyyy/mm/dd/{nick_ts} => { score, ym, yw, country, nickname, ts }
-      let pathPrefix = "scores";
-      let startKey = null, endKey = null;
+    snap.forEach(dateSnap=>{
+      const dateKey = dateSnap.key; // YYYY-MM-DD
+      // 기간 필터
+      if (wk && !(dateKey>=wk.start && dateKey<=wk.end)) return;
+      if (month && !dateKey.startsWith(month)) return;
 
-      // DB는 경로 기반으로 가져오되, 최근 데이터부터 500개 정도 제한 후 정렬
-      // (필요 시 인덱스 규칙 추가)
-      const paths = await collectRecentPaths(range); // 최근 며칠/해당 월 경로 수집
-      let items = [];
-
-      for (const p of paths) {
-        try {
-          const snap = await get(ref(db, p));
-          if (snap.exists()) {
-            const obj = snap.val();
-            for (const key in obj) {
-              const row = obj[key];
-              if (!row || typeof row !== "object") continue;
-              if (countrySel !== "ALL" && row.country !== countrySel) continue;
-              if (range === "week" && row.yw !== getYearWeek(Date.now())) continue;
-              if (range === "month" && row.ym !== `${y}-${m}`) continue;
-              items.push(row);
-            }
-          }
-        } catch (e) {
-          console.warn("[DB] 경로 로드 실패:", p, e);
-        }
-      }
-
-      // 점수 내림차순 → 상위 100 표시
-      items.sort((a,b)=> (b.score||0)-(a.score||0));
-      renderRankings(items.slice(0,100));
-    }
-
-    // 최근 경로(일/월) 수집
-    async function collectRecentPaths(range) {
-      const paths = [];
-      const now = new Date();
-      if (range === "all") {
-        // 최근 30일치만 스캔(트래픽 과다 방지)
-        for (let i=0;i<30;i++){
-          const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()-i);
-          const y2=t.getFullYear(), m2=pad2(t.getMonth()+1), d2=pad2(t.getDate());
-          paths.push(`scores/${y2}/${m2}/${d2}`);
-        }
-      } else if (range === "week") {
-        for (let i=0;i<7;i++){
-          const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()-i);
-          const y2=t.getFullYear(), m2=pad2(t.getMonth()+1), d2=pad2(t.getDate());
-          paths.push(`scores/${y2}/${m2}/${d2}`);
-        }
-      } else { // month
-        const daysInMonth = new Date(y, Number(m), 0).getDate();
-        for (let i=1;i<=daysInMonth;i++){
-          paths.push(`scores/${y}/${m}/${pad2(i)}`);
-        }
-      }
-      return paths;
-    }
-
-    function renderRankings(rows) {
-      if (!$rankList) return;
-      $rankList.innerHTML = "";
-      if (!rows.length) {
-        $rankList.innerHTML = "<li>랭킹 데이터가 없습니다.</li>";
-        return;
-      }
-      rows.forEach((r, idx) => {
-        const li = document.createElement("li");
-        const flagSrc = (r.country === "KR") ? "https://flagcdn.com/kr.svg" : null;
-        li.innerHTML = `
-          <span>#${idx+1}</span>
-          <span class="rank-flags">
-            ${flagSrc ? `<img class="flag" alt="${r.country}" src="${flagSrc}">` : ""}
-            <strong>${escapeHtml(r.nickname||"")}</strong>
-          </span>
-          <span>${Number(r.score||0).toLocaleString()}</span>
-        `;
-        $rankList.appendChild(li);
+      const users = dateSnap.val()||{};
+      Object.keys(users).forEach(n=>{
+        const v = users[n]||{};
+        if (country!=='ALL' && (v.country||'KR').toUpperCase()!==country) return;
+        rows.push({
+          nick: n,
+          score: Number(v.score)||0,
+          country: (v.country||'KR').toUpperCase(),
+          date: dateKey,
+          ts: v.ts||0
+        });
       });
-    }
-
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
-    // 필터 변경 시 즉시 갱신
-    $country?.addEventListener("change", loadRanking);
-    rangeRadios.forEach(r => r.addEventListener("change", loadRanking));
-
-    // 초기 로드
-    loadRanking();
-
-    // 디버그 도우미: 전역 노출(필요 시 제거 가능)
-    window.__rankReload = loadRanking;
-  </script>
-
-  <!-- =========================
-       안전장치: 전역 에러 핸들링 (빈 화면 방지)
-  ========================== -->
-  <script>
-    window.addEventListener("error", (e) => {
-      console.error("[GlobalError]", e?.error || e?.message || e);
-      // 화면이 비는 것처럼 보이지 않도록 최소한의 경고만 콘솔에 남김
     });
-    window.addEventListener("unhandledrejection", (e) => {
-      console.error("[UnhandledRejection]", e.reason);
-    });
-  </script>
 
-</body>
-</html>
+    rows.sort((a,b)=> (b.score-a.score) || (a.ts-b.ts));
+    // 기존 테이블 그리는 로직은 render()가 담당한다고 하셨으므로 rowsAll만 갱신
+    window.rowsAll = rows;
+    if (typeof window.render==='function') window.render();
+  }catch(e){
+    console.warn('[RTDB] load failed:', e);
+  }
+}
+
+/** 5) 상단 배지(연결 상태) — 기존 배지 id가 다르면 querySelector 수정만 */
+async function watchRTDBBadge(){
+  try{
+    const db = await ensureFirebaseReady();
+    const badge = document.querySelector('#firebase-badge'); // 없으면 무시
+    db.ref('.info/connected').on('value', s=>{
+      const ok = !!s.val();
+      if (!badge) return;
+      badge.textContent = ok ? 'Firebase 연결 OK / Connected — 점수 업로드 가능'
+                             : '랭킹 비활성 — Firebase 미연결';
+      badge.className = ok ? 'badge ok' : 'badge warn';
+    });
+  }catch(e){ console.warn('[RTDB] badge watch failed:', e); }
+}
+
+/** 6) endGame 패치: 기존 endGame 유지 + 저장 한 줄만 주입 */
+(function patchEndGameOnce(){
+  if (window.__patchedEndGame__) return; // 중복 방지
+  window.__patchedEndGame__ = true;
+
+  const _endGame = window.endGame || function(){};
+  window.endGame = function(){
+    try{
+      // (기존 스코어/오버레이 로직은 _endGame 내부에서 그대로 수행)
+      const nickEl = document.getElementById('nickname');              // 기존 입력창 id 유지
+      const scoreEl = document.getElementById('ui-score');             // 기존 점수 표시 id 유지
+      const nick   = (nickEl?.value || 'Guest').trim();
+      const score  = parseInt(scoreEl?.textContent || '0', 10) || 0;
+      const country= (window.activeCountry || 'KR').toUpperCase();
+
+      // RTDB 저장 1회
+      saveScoreToRTDB(nick, score, country);
+    }catch(e){
+      console.warn('[RTDB] endGame hook failed:', e);
+    }
+    // 원래 endGame 동작 호출(디자인/게임 로직 그대로)
+    return _endGame.apply(this, arguments);
+  };
+})();
+
+/** 7) 초기 1회: 배지 감시 + 기본 목록 로드 실행
+ *    - 주/월/국가 버튼에서 filter 만들어 loadScoresAndRender(filter)만 호출하세요.
+ */
+watchRTDBBadge();
+loadScoresAndRender({country:'ALL'}); // 최초 ALL
+</script>
+<!-- === RTDB 통합: END === -->
