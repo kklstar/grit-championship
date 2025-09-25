@@ -1,324 +1,149 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>천하제일 근성 대회 — Tetris</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- === RTDB 통합: START (붙여넣기 전용 / 디자인·게임 로직 무변경) === -->
+<script>
+/** 0) 동적 스크립트 로더 (중복 로드 방지) */
+function loadScriptOnce(src){
+  return new Promise((resolve,reject)=>{
+    if([...(document.scripts||[])].some(s=>s.src===src)) return resolve();
+    const s=document.createElement('script');
+    s.src=src; s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
 
-  <!-- ✅ 기존 디자인/폰트/스타일은 그대로 유지하세요.
-       아래 CSS는 오버레이 팝업과 테이블만 최소한으로 스타일링(다크톤) 합니다. -->
-  <style>
-    /* 최소 오버레이: 기존 레이아웃을 건드리지 않음 */
-    #gc-overlay {
-      position: fixed; inset: 0; display: none;
-      background: rgba(0,0,0,.48);
-      align-items: center; justify-content: center;
-      z-index: 9999;
-    }
-    #gc-dialog {
-      width: min(92vw, 360px);
-      background: #111a22;
-      color: #dbe8ff;
-      padding: 18px;
-      border-radius: 14px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.45);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-    #gc-dialog h3 { margin: 4px 0 14px; font-size: 18px; font-weight: 700; }
-    #gc-dialog .row { display: grid; gap: 10px; margin: 10px 0 4px; }
-    #gc-nickname {
-      width: 100%; padding: 10px 12px; border-radius: 10px;
-      background: #0f1720; border: 1px solid rgba(255,255,255,.12);
-      color: #e8f0ff; outline: none;
-    }
-    #gc-start {
-      width: 100%; padding: 11px 12px; border-radius: 10px; cursor: pointer;
-      border: 1px solid rgba(255,255,255,.08);
-      background: linear-gradient(180deg,#26d07c,#18b46a);
-      color: #00140b; font-weight: 800; letter-spacing: .2px;
-    }
-    #gc-msg { font-size: 12px; color: #70ffa8d0; margin-top: 8px; min-height: 14px; }
+/** 1) Firebase SDK 로드 + 초기화 */
+async function ensureFirebaseReady(){
+  // compat SDK (현재 코드와 궁합 ↑)
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
+  await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
 
-    /* 리더보드 표(기존 표가 있으면 이 스타일이 살짝만 얹힙니다) */
-    table.gc-board { width: 100%; border-collapse: collapse; font-size: 14px; color: #cfe8ff; }
-    table.gc-board thead th {
-      text-align: left; font-weight: 700; color: #88bfff; padding: 8px 10px;
-      background: rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.07);
-    }
-    table.gc-board tbody td { padding: 8px 10px; border-bottom: 1px dashed rgba(255,255,255,.06); }
-    .gc-badge { display:inline-flex; align-items:center; gap:6px; }
-    .gc-flag { width: 18px; height: 12px; border-radius: 2px; object-fit: cover; border: .5px solid rgba(255,255,255,.25); }
-    .gc-pill { display:inline-block; padding:4px 10px; border-radius: 999px; font-size:12px; }
-    .gc-pill.live { background:#063; color:#81ffbd; border:1px solid #0a5; }
-    .gc-pill.saved{ background:#11213a; color:#9bd2ff; border:1px solid #244a86; }
-  </style>
-</head>
-<body>
+  // ❗❗ 여기에 "Firebase 콘솔 > 프로젝트 설정 > 웹 앱"의 값을 그대로 붙여 넣으세요.
+  //    (이미 붙여 넣으셨다면 아래 값 유지)
+  window.firebaseConfig = window.firebaseConfig || {
+    apiKey: "PASTE_YOUR_apiKey",
+    authDomain: "PASTE_YOUR_authDomain",
+    databaseURL: "PASTE_YOUR_databaseURL",   // ← 이 값이 비어 있으면 RTDB 연결이 안 됩니다.
+    projectId: "PASTE_YOUR_projectId",
+    storageBucket: "PASTE_YOUR_storageBucket",
+    messagingSenderId: "PASTE_YOUR_messagingSenderId",
+    appId: "PASTE_YOUR_appId",
+    measurementId: "PASTE_YOUR_measurementId"
+  };
 
-  <!-- ▽▽▽ 기존 게임 보드 / 점수판 / 필터 / 리더보드 등 “기존 마크업”은 그대로 두세요 ▽▽▽ -->
-  <!--
-    - 점수 출력 span:  id="ui-score"
-    - 닉네임 입력 인풋이 기존에 있으면 유지, 없으면 아래 오버레이가 사용됩니다.
-    - 리더보드 tbody: id="leaderboard-body"  (없으면 아래에서 자동 생성)
-    - 필터 버튼(선택): id="flt-all" / id="flt-week" / id="flt-month" / id="flt-kr" / id="flt-allCountry"
-  -->
+  if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+  return firebase.database();
+}
 
-  <!-- ✅ 리더보드 테이블이 없다면 아래를 한 번만 만들어 둡니다 -->
-  <section id="gc-leaderboard-host">
-    <div style="display:flex; gap:8px; align-items:center; margin:8px 0;">
-      <span class="gc-pill live">실시간 업데이트 (Firebase RTDB)</span>
-      <span id="gc-info" class="gc-pill saved" style="display:none;">점수 저장 완료</span>
-      <!-- (필요 시) 필터 버튼이 기존에 있으면 그대로 쓰입니다 -->
-    </div>
-    <table class="gc-board">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>닉네임 / Nickname</th>
-          <th>국가 / Country</th>
-          <th>점수 / Score</th>
-        </tr>
-      </thead>
-      <tbody id="leaderboard-body"></tbody>
-    </table>
-  </section>
+/** 2) 유틸(키/날짜) — RTDB 키 금지문자 처리 */
+function safeKey(str=''){
+  return String(str).replace(/[.#$\[\]]/g,'_').trim().slice(0,30) || 'Guest';
+}
+function ymd(d=new Date()){
+  // 로컬 → UTC 보정(날짜 경계 오차 방지)
+  return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
 
-  <!-- ✅ Game Over / 시작 오버레이 (디자인 최소 변경) -->
-  <div id="gc-overlay" role="dialog" aria-modal="true">
-    <div id="gc-dialog">
-      <h3 id="gc-title">Game Over</h3>
-      <div class="row">
-        <input id="gc-nickname" type="text" placeholder="닉네임 / Nickname (2자 이상)" />
-        <button id="gc-start">시작</button>
-        <div id="gc-msg"></div>
-      </div>
-      <div style="font-size:12px; opacity:.7;">조작: ← → 이동 · ↑ 회전 · ↓ 소프트드롭 · Space 하드드롭 (클래식)</div>
-    </div>
-  </div>
+/** 3) 저장: 게임 종료시 1회 호출 */
+async function saveScoreToRTDB(nickname, score, countryCode){
+  try{
+    const db = await ensureFirebaseReady();
+    const dateKey = ymd();
+    const nickKey = safeKey(nickname);
+    const path = `scores/${dateKey}/${nickKey}`;
 
-  <!-- ▽▽▽ ▽▽▽ ▽▽▽  여기까지 “기존 화면”은 그대로 둡니다 ▽▽▽ ▽▽▽ ▽▽▽ -->
+    await db.ref(path).set({
+      score: Number(score)||0,
+      country: (countryCode||'KR').toUpperCase(),
+      ts: Date.now()
+    });
+    console.log('[RTDB] saved:', path);
+  }catch(e){
+    console.warn('[RTDB] save failed:', e);
+  }
+}
 
-  <script>
-    /** ─────────────────────────────────────────────────────────
-     *  공용 유틸
-     *  ───────────────────────────────────────────────────────── */
-    function loadScriptOnce(src){
-      return new Promise((resolve, reject)=>{
-        if([...(document.scripts||[])].some(s=>s.src===src)) return resolve();
-        const s=document.createElement('script'); s.src=src;
-        s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
-      });
-    }
-    const pad2 = n => (n<10?'0':'')+n;
-    const ymd = (d=new Date()) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-    const weekStart = (d=new Date())=>{
-      const c=new Date(d); const day=(c.getDay()+6)%7; c.setDate(c.getDate()-day);
-      c.setHours(0,0,0,0); return c;
-    };
-    const monthStart = (d=new Date())=>{
-      const c=new Date(d.getFullYear(), d.getMonth(), 1); c.setHours(0,0,0,0); return c;
-    };
+/** 4) 읽기: 리스트 렌더 자료 rowsAll 생성(기존 render()는 그대로 사용) */
+async function loadScoresAndRender(filter){
+  try{
+    const db = await ensureFirebaseReady();
+    const snap = await db.ref('scores').get();
+    const rows=[];
 
-    /** ─────────────────────────────────────────────────────────
-     *  Firebase 연결 (디자인/게임 로직 건드리지 않음)
-     *  ───────────────────────────────────────────────────────── */
-    async function ensureFirebaseReady(){
-      await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js');
-      await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js');
+    const wk = filter?.weekRange;   // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'}
+    const month = filter?.month;    // 'YYYY-MM'
+    const country = (filter?.country||'ALL').toUpperCase();
 
-      /* 🔽🔽 본인 콘솔의 값으로 이미 교체해 드렸습니다 (요청하신 값) */
-      const firebaseConfig = {
-        apiKey: "AIzaSyAHQngy1vRalgSIMOHEJvKcKkUGkUQwKPQ",
-        authDomain: "grit-championship-v02.firebaseapp.com",
-        databaseURL: "https://grit-championship-v02-default-rtdb.firebaseio.com",
-        projectId: "grit-championship-v02",
-        storageBucket: "grit-championship-v02.appspot.com",
-        messagingSenderId: "644513888198",
-        appId: "1:644513888198:web:baa0728174614bb68124c7",
-        measurementId: "G-F83JH16CR6"
-      };
+    snap.forEach(dateSnap=>{
+      const dateKey = dateSnap.key; // YYYY-MM-DD
+      // 기간 필터
+      if (wk && !(dateKey>=wk.start && dateKey<=wk.end)) return;
+      if (month && !dateKey.startsWith(month)) return;
 
-      if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-      return firebase.database();
-    }
-
-    let DB=null;                 // RTDB 핸들
-    let ACTIVE_COUNTRY='ALL';    // KR / ALL
-    let ACTIVE_RANGE='ALL';      // ALL / WEEK / MONTH
-    let COUNTRY_CODE='KR';       // 기본 KR (Cloudflare Worker 연동 시 자동감지 바인딩 가능)
-    let saving=false;
-
-    (async()=>{
-      try{
-        DB = await ensureFirebaseReady();
-        console.log('✅ Firebase 연결 OK');
-
-        // 헬스 체크(선택)
-        await DB.ref('healthcheck').set({ ping: Date.now() });
-        const snap = await DB.ref('healthcheck').get();
-        console.log('RTDB write/read OK:', snap.val());
-
-        subscribeRealtime();   // 실시간 리더보드
-        wireFilters();         // 필터 버튼 연결(존재 시)
-        wirePopup();           // 팝업 버튼 연결
-        wrapEndGame();         // endGame 래핑(기존 로직 보존)
-      }catch(e){
-        console.error('❌ Firebase 연결 실패:', e);
-        const info=document.getElementById('gc-info');
-        if(info){ info.textContent='랭킹 비활성 — Firebase 미연결'; info.style.display='inline-block'; }
-      }
-    })();
-
-    /** ─────────────────────────────────────────────────────────
-     *  리더보드: 실시간 구독 + 렌더
-     *  구조: /scores/YYYY-MM-DD/<nick> = { score, country, ts }
-     *  ───────────────────────────────────────────────────────── */
-    function subscribeRealtime(){
-      if(!DB) return;
-      DB.ref('scores').on('value', snap=>{
-        const rows=[];
-        snap.forEach(dateSnap=>{
-          const dateKey = dateSnap.key;       // YYYY-MM-DD
-          const date = new Date(dateKey+'T00:00:00');
-          dateSnap.forEach(userSnap=>{
-            const v=userSnap.val()||{};
-            if(typeof v.score==='number'){
-              rows.push({ date, nick: userSnap.key, score: v.score, country: v.country||'KR', ts: v.ts||0 });
-            }
-          });
+      const users = dateSnap.val()||{};
+      Object.keys(users).forEach(n=>{
+        const v = users[n]||{};
+        if (country!=='ALL' && (v.country||'KR').toUpperCase()!==country) return;
+        rows.push({
+          nick: n,
+          score: Number(v.score)||0,
+          country: (v.country||'KR').toUpperCase(),
+          date: dateKey,
+          ts: v.ts||0
         });
-
-        // 필터링
-        const now=new Date();
-        let from = new Date(0);
-        if(ACTIVE_RANGE==='WEEK') from = weekStart(now);
-        else if(ACTIVE_RANGE==='MONTH') from = monthStart(now);
-        const filtered = rows.filter(r => r.date >= from)
-                             .filter(r => ACTIVE_COUNTRY==='ALL' ? true : r.country===ACTIVE_COUNTRY);
-
-        // 정렬 & 상위 50
-        filtered.sort((a,b)=> b.score - a.score || a.ts - b.ts);
-        renderBoard(filtered.slice(0,50));
       });
+    });
+
+    rows.sort((a,b)=> (b.score-a.score) || (a.ts-b.ts));
+    // 기존 테이블 그리는 로직은 render()가 담당한다고 하셨으므로 rowsAll만 갱신
+    window.rowsAll = rows;
+    if (typeof window.render==='function') window.render();
+  }catch(e){
+    console.warn('[RTDB] load failed:', e);
+  }
+}
+
+/** 5) 상단 배지(연결 상태) — 기존 배지 id가 다르면 querySelector 수정만 */
+async function watchRTDBBadge(){
+  try{
+    const db = await ensureFirebaseReady();
+    const badge = document.querySelector('#firebase-badge'); // 없으면 무시
+    db.ref('.info/connected').on('value', s=>{
+      const ok = !!s.val();
+      if (!badge) return;
+      badge.textContent = ok ? 'Firebase 연결 OK / Connected — 점수 업로드 가능'
+                             : '랭킹 비활성 — Firebase 미연결';
+      badge.className = ok ? 'badge ok' : 'badge warn';
+    });
+  }catch(e){ console.warn('[RTDB] badge watch failed:', e); }
+}
+
+/** 6) endGame 패치: 기존 endGame 유지 + 저장 한 줄만 주입 */
+(function patchEndGameOnce(){
+  if (window.__patchedEndGame__) return; // 중복 방지
+  window.__patchedEndGame__ = true;
+
+  const _endGame = window.endGame || function(){};
+  window.endGame = function(){
+    try{
+      // (기존 스코어/오버레이 로직은 _endGame 내부에서 그대로 수행)
+      const nickEl = document.getElementById('nickname');              // 기존 입력창 id 유지
+      const scoreEl = document.getElementById('ui-score');             // 기존 점수 표시 id 유지
+      const nick   = (nickEl?.value || 'Guest').trim();
+      const score  = parseInt(scoreEl?.textContent || '0', 10) || 0;
+      const country= (window.activeCountry || 'KR').toUpperCase();
+
+      // RTDB 저장 1회
+      saveScoreToRTDB(nick, score, country);
+    }catch(e){
+      console.warn('[RTDB] endGame hook failed:', e);
     }
+    // 원래 endGame 동작 호출(디자인/게임 로직 그대로)
+    return _endGame.apply(this, arguments);
+  };
+})();
 
-    function renderBoard(list){
-      // tbody 확보 (없으면 자동 생성)
-      let tbody = document.getElementById('leaderboard-body');
-      if(!tbody){
-        const host=document.getElementById('gc-leaderboard-host');
-        if(!host) return;
-        const table=host.querySelector('table.gc-board')||document.createElement('table');
-        if(!table.classList.contains('gc-board')){
-          table.className='gc-board'; table.innerHTML = `
-            <thead><tr>
-              <th>#</th><th>닉네임 / Nickname</th><th>국가 / Country</th><th>점수 / Score</th>
-            </tr></thead><tbody id="leaderboard-body"></tbody>`;
-          host.appendChild(table);
-        }
-        tbody = document.getElementById('leaderboard-body');
-      }
-
-      tbody.innerHTML='';
-      list.forEach((r,idx)=>{
-        const tr=document.createElement('tr');
-        const flag = `<img class="gc-flag" src="https://flagcdn.com/w20/${(r.country||'KR').toLowerCase()}.png" alt="">`;
-        tr.innerHTML = `
-          <td>${idx+1}</td>
-          <td>${r.nick}</td>
-          <td><span class="gc-badge">${flag}<span>${r.country}</span></span></td>
-          <td>${r.score.toLocaleString()}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    /** ─────────────────────────────────────────────────────────
-     *  Game Over 저장: 기존 endGame를 래핑(원본 유지)
-     *  ───────────────────────────────────────────────────────── */
-    function wrapEndGame(){
-      const original = window.endGame || function(){};
-      window.endGame = async function(){
-        try{
-          await saveScore();   // 저장 시도
-        }catch(e){ console.warn('saveScore skipped:', e); }
-        original();            // 원본 동작(사운드/애니/로직) 그대로
-        openPopup('Game Over'); // 팝업 열기 (닉네임 입력/재시작)
-      };
-    }
-
-    async function saveScore(){
-      if(saving || !DB) return;
-      const score = parseInt((document.getElementById('ui-score')?.textContent||'0'),10) || 0;
-      const nickInput = document.getElementById('gc-nickname');
-      const nickname = (nickInput?.value || 'Guest').trim().replace(/[.#$\[\]]/g,'_');
-      if(!nickname) return;
-
-      saving=true;
-      try{
-        const dateKey = ymd(new Date());  // YYYY-MM-DD
-        const ref = DB.ref(`scores/${dateKey}/${nickname}`);
-
-        // 이미 존재하면(규칙상 덮어쓰기 금지), set()은 거절 → catch로 빠짐.
-        await ref.set({ score, country: COUNTRY_CODE||'KR', ts: Date.now() });
-
-        const info=document.getElementById('gc-info');
-        if(info){ info.textContent='점수 저장 완료 / Saved'; info.style.display='inline-block'; }
-      }catch(e){
-        console.warn('RTDB set skipped(or denied by rule).', e?.message||e);
-      }finally{ saving=false; }
-    }
-
-    /** ─────────────────────────────────────────────────────────
-     *  오버레이 / 필터
-     *  ───────────────────────────────────────────────────────── */
-    function wirePopup(){
-      const overlay=document.getElementById('gc-overlay');
-      const btn=document.getElementById('gc-start');
-      if(btn) btn.addEventListener('click', ()=>{
-        const v=(document.getElementById('gc-nickname').value||'').trim();
-        if(v.length<2){ document.getElementById('gc-msg').textContent='닉네임 2자 이상 입력'; return; }
-        document.getElementById('gc-msg').textContent='';
-        overlay.style.display='none';
-        // 실제 게임 재시작 트리거가 따로 있으면 여기서 호출하세요 (예: startGame())
-        // window.startGame && window.startGame();
-      });
-    }
-    function openPopup(title='Game Over'){
-      const o=document.getElementById('gc-overlay');
-      const t=document.getElementById('gc-title');
-      if(t) t.textContent=title;
-      if(o) o.style.display='flex';
-      // 게임 키입력 중복 방지 필요 시 여기서 잠금(선택)
-    }
-
-    function wireFilters(){
-      // 주간
-      const w=document.getElementById('flt-week');
-      if(w) w.addEventListener('click', ()=>{ ACTIVE_RANGE='WEEK'; subscribeRealtime(); });
-
-      // 월간
-      const m=document.getElementById('flt-month');
-      if(m) m.addEventListener('click', ()=>{ ACTIVE_RANGE='MONTH'; subscribeRealtime(); });
-
-      // 전체(기간)
-      const a=document.getElementById('flt-all');
-      if(a) a.addEventListener('click', ()=>{ ACTIVE_RANGE='ALL'; subscribeRealtime(); });
-
-      // 국가 KR
-      const kr=document.getElementById('flt-kr');
-      if(kr) kr.addEventListener('click', ()=>{ ACTIVE_COUNTRY='KR'; subscribeRealtime(); });
-
-      // 국가 ALL
-      const al=document.getElementById('flt-allCountry');
-      if(al) al.addEventListener('click', ()=>{ ACTIVE_COUNTRY='ALL'; subscribeRealtime(); });
-    }
-  </script>
-
-  <!-- ▽▽▽ ▽▽▽ ▽▽▽ ▽▽▽
-    ✅ 이 아래에 “기존 게임 스크립트(테트리스 엔진)”가 이미 있다면 그대로 두세요.
-       위 코드가 endGame()만 래핑해서 저장/팝업을 추가합니다.
-       (startGame 등 기존 함수명/로직은 변경하지 않습니다)
-  ▽▽▽ ▽▽▽ ▽▽▽ ▽▽▽ -->
-
-</body>
-</html>
+/** 7) 초기 1회: 배지 감시 + 기본 목록 로드 실행
+ *    - 주/월/국가 버튼에서 filter 만들어 loadScoresAndRender(filter)만 호출하세요.
+ */
+watchRTDBBadge();
+loadScoresAndRender({country:'ALL'}); // 최초 ALL
+</script>
+<!-- === RTDB 통합: END === -->
